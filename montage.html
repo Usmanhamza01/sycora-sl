@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Montage des états financiers — SYSCOHADA & SYCEBNL</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#1B3A5C">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --navy:#10243E;--navy2:#1B3A5C;--teal:#0E7C7B;--teal-light:#E3F2F1;
+  --paper:#F7F5F0;--line:#D9D4C8;--ink:#1B1B1B;--muted:#6B6558;
+  --ok:#1E7A45;--ok-bg:#E7F4EB;--warn:#C00000;--warn-bg:#FBEAE4;
+  --pend:#8A5A00;--pend-bg:#FCF1DD;--grey-bg:#EAE6DC;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:var(--paper);color:var(--ink);}
+header{background:var(--navy);color:#fff;padding:16px 36px;display:flex;align-items:center;justify-content:space-between;}
+header h1{font-size:20px;font-weight:700;letter-spacing:2px;font-family:Georgia,serif;}
+header p{font-size:12px;color:#B9C6D6;margin-top:2px;}
+header a{color:#B9C6D6;font-size:12.5px;text-decoration:none;border:1px solid #33506F;border-radius:4px;padding:7px 14px;}
+header a:hover{color:#fff;border-color:#fff;}
+.wrap{max-width:1240px;margin:0 auto;padding:24px 36px 90px;}
+/* Stepper */
+.steps{display:flex;gap:0;margin-bottom:26px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;}
+.step{flex:1;padding:12px 14px;font-size:12.5px;font-weight:700;color:var(--muted);border-right:1px solid var(--line);cursor:pointer;display:flex;align-items:center;gap:8px;}
+.step:last-child{border-right:none;}
+.step .num{width:22px;height:22px;border-radius:50%;background:var(--grey-bg);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.step.active{background:var(--navy);color:#fff;}
+.step.active .num{background:var(--teal);color:#fff;}
+.step.done .num{background:var(--ok);color:#fff;}
+.panel{display:none;}
+.panel.active{display:block;}
+h2.sec{font-size:15px;color:var(--navy);margin-bottom:14px;}
+.hint{font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.5;}
+/* Cards système */
+.sys-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;}
+.sys-card{background:#fff;border:2px solid var(--line);border-radius:10px;padding:24px 22px;cursor:pointer;transition:.15s;}
+.sys-card:hover{border-color:var(--navy2);transform:translateY(-2px);}
+.sys-card.sel{border-color:var(--teal);background:var(--teal-light);}
+.sys-card .ic{font-size:30px;margin-bottom:10px;}
+.sys-card h3{font-size:15px;color:var(--navy);margin-bottom:6px;}
+.sys-card p{font-size:12px;color:var(--muted);line-height:1.5;}
+.sys-badge{display:inline-block;margin-top:10px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;background:var(--grey-bg);color:var(--muted);}
+/* Formulaire fiche */
+.fiche{background:#fff;border:1px solid var(--line);border-radius:8px;padding:22px;}
+.fiche h3{font-size:13px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+.fiche h3:first-child{margin-top:0;}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px 16px;}
+.fg label{display:block;font-size:11.5px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.fg input,.fg select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-size:13px;font-family:Arial,sans-serif;}
+.fg input:focus{outline:2px solid var(--teal-light);border-color:var(--teal);}
+/* Drops */
+.drop-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.drop{border:2px dashed var(--line);border-radius:8px;padding:26px 18px;text-align:center;cursor:pointer;background:#fff;transition:.15s;}
+.drop:hover{border-color:var(--navy2);}
+.drop.has-file{border-color:var(--teal);background:var(--teal-light);}
+.drop-label{font-weight:700;font-size:13.5px;color:var(--navy);}
+.drop-hint{font-size:11.5px;color:var(--muted);margin-top:5px;}
+.drop-fname{font-size:11.5px;color:var(--teal);margin-top:8px;word-break:break-all;font-weight:700;}
+input[type=file]{display:none;}
+button{font-family:Arial,sans-serif;font-weight:700;font-size:13px;border:none;border-radius:4px;padding:10px 20px;cursor:pointer;transition:.15s;}
+.btn-primary{background:var(--teal);color:#fff;}
+.btn-primary:hover{background:#0a6362;}
+.btn-primary:disabled{background:#B7B2A4;cursor:not-allowed;}
+.btn-secondary{background:var(--navy);color:#fff;}
+.btn-secondary:hover{background:var(--navy2);}
+.btn-ghost{background:var(--grey-bg);color:var(--navy);}
+.actions{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;align-items:center;}
+.status{font-size:12.5px;color:var(--muted);min-height:18px;margin-top:10px;}
+.status.err{color:var(--warn);font-weight:700;}
+.status.ok{color:var(--ok);font-weight:700;}
+/* Contrôles */
+.ctl-row{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0;}
+.ctl{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 18px;min-width:200px;}
+.ctl .t{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
+.ctl .v{font-size:16px;font-weight:700;margin-top:4px;}
+.ctl.ok{border-color:var(--ok);background:var(--ok-bg);}.ctl.ok .v{color:var(--ok);}
+.ctl.bad{border-color:var(--warn);background:var(--warn-bg);}.ctl.bad .v{color:var(--warn);}
+/* Sub tabs états */
+.sub-tabs{display:flex;gap:2px;border-bottom:2px solid var(--navy);margin:18px 0 0;}
+.sub-tab{padding:9px 18px;font-size:12.5px;font-weight:700;color:var(--navy);background:var(--grey-bg);cursor:pointer;border-radius:5px 5px 0 0;}
+.sub-tab.active{background:var(--navy);color:#fff;}
+.sub-panel{display:none;background:#fff;border:1px solid var(--line);border-top:none;padding:14px;}
+.sub-panel.active{display:block;}
+table.ef{width:100%;border-collapse:collapse;font-size:12.3px;}
+table.ef th{background:var(--navy);color:#fff;text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+table.ef td{padding:5px 10px;border-bottom:1px solid var(--line);}
+table.ef td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+table.ef tr.tot td{background:var(--grey-bg);font-weight:700;}
+table.ef tr.grand td{background:var(--navy2);color:#fff;font-weight:700;}
+table.ef td.ref{font-weight:700;color:var(--teal);width:42px;}
+/* Export cards */
+.exp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:20px;}
+.exp{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;}
+.exp h3{font-size:14px;color:var(--navy);margin-bottom:8px;}
+.exp p{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px;}
+.exp .drop{padding:16px 12px;margin-bottom:12px;}
+.note{font-size:12px;padding:10px 14px;border-radius:6px;margin:12px 0;line-height:1.5;}
+.note.warn{background:var(--pend-bg);color:var(--pend);}
+.note.info{background:var(--teal-light);color:var(--teal);}
+/* Print */
+#print-zone{display:none;}
+@media print{
+  body *{visibility:hidden;}
+  #print-zone,#print-zone *{visibility:visible;}
+  #print-zone{display:block;position:absolute;left:0;top:0;width:100%;}
+  .pr-page{page-break-after:always;padding:10mm 6mm;}
+  .pr-head{text-align:center;margin-bottom:6mm;}
+  .pr-head h2{font-size:15px;}
+  .pr-head .meta{font-size:10.5px;margin-top:3px;color:#333;}
+  table.pr{width:100%;border-collapse:collapse;font-size:9.5px;}
+  table.pr th{border:1px solid #333;background:#eee;padding:3px 5px;text-align:center;}
+  table.pr td{border:1px solid #999;padding:2.5px 5px;}
+  table.pr td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  table.pr tr.tot td{background:#f0ede4;font-weight:700;}
+  table.pr tr.grand td{background:#dcd6c6;font-weight:700;}
+}
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <img src="icon-192.png" alt="" style="width:38px;height:38px;border-radius:8px;">
+    <div>
+      <h1>MONTAGE DES ÉTATS FINANCIERS</h1>
+      <p>SYSCOHADA · SYCEBNL (Associations & Fondations / Projets de développement) · Liasse Excel · PDF · DGID</p>
+    </div>
+  </div>
+  <a href="index.html" id="accueil-link" onclick="if(window.self!==window.top){try{parent.setSycoraMode('audit');return false;}catch(e){}}">← Accueil</a>
+</header>
+
+<div class="wrap">
+  <div class="steps" id="steps">
+    <div class="step active" data-step="1"><span class="num">1</span> Système comptable</div>
+    <div class="step" data-step="2"><span class="num">2</span> Fiche de renseignement</div>
+    <div class="step" data-step="3"><span class="num">3</span> Balances N / N-1</div>
+    <div class="step" data-step="4"><span class="num">4</span> États financiers & Exports</div>
+  </div>
+
+  <!-- ══ ÉTAPE 1 : SYSTÈME ══ -->
+  <div class="panel active" id="p1">
+    <h2 class="sec">Choisissez le système comptable</h2>
+    <p class="hint">Ce choix détermine le référentiel utilisé pour le montage des états financiers ainsi que le modèle de liasse à remplir.</p>
+    <div class="sys-grid">
+      <div class="sys-card" data-sys="SYSCOHADA" onclick="pickSys(this)">
+        <div class="ic">🏢</div>
+        <h3>SYSCOHADA révisé</h3>
+        <p>Entités du secteur privé (sociétés commerciales et assimilées). Bilan, compte de résultat et TAFIRE selon le système normal.</p>
+        <span class="sys-badge">Entreprises</span>
+      </div>
+      <div class="sys-card" data-sys="SYCEBNL_ASSOC" onclick="pickSys(this)">
+        <div class="ic">🤝</div>
+        <h3>SYCEBNL — Associations</h3>
+        <p>Associations, ordres professionnels, fondations et assimilés. Liasse fiscale conforme au modèle SYCEBNL officiel.</p>
+        <span class="sys-badge">Entités à but non lucratif</span>
+      </div>
+      <div class="sys-card" data-sys="SYCEBNL_PROJET" onclick="pickSys(this)">
+        <div class="ic">🌍</div>
+        <h3>SYCEBNL — Projets de développement</h3>
+        <p>Projets de développement et assimilés. Liasse fiscale conforme au modèle SYCEBNL officiel (TER, TRC, TEB).</p>
+        <span class="sys-badge">Projets & programmes</span>
+      </div>
+    </div>
+    <div class="actions"><button class="btn-primary" id="btn-s1" disabled onclick="go(2)">Continuer →</button></div>
+  </div>
+
+  <!-- ══ ÉTAPE 2 : FICHE ══ -->
+  <div class="panel" id="p2">
+    <h2 class="sec">Fiche de renseignement de l'entité (Fiche R1)</h2>
+    <p class="hint">Ces informations alimentent la <strong>FICHE R1</strong> et l'onglet <strong>INFORMATIONS GÉNÉRALES</strong> de la liasse. Elles sont enregistrées automatiquement sur cet appareil.</p>
+    <div class="fiche-io" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+      <button class="btn-secondary btn-sm" onclick="document.getElementById('file-fiche').click()">📥 Importer la fiche (Excel)</button>
+      <input type="file" id="file-fiche" accept=".xlsx,.xls" style="display:none">
+      <button class="btn-secondary btn-sm" onclick="downloadFicheTemplate()">⬇️ Télécharger un modèle de fiche</button>
+      <span class="status" id="st-fiche"></span>
+    </div>
+    <div class="fiche" id="fiche-form"></div>
+    <div class="actions">
+      <button class="btn-ghost" onclick="go(1)">← Retour</button>
+      <button class="btn-primary" onclick="saveFiche();go(3)">Enregistrer et continuer →</button>
+      <span class="status" id="st2"></span>
+    </div>
+  </div>
+
+  <!-- ══ ÉTAPE 3 : BALANCES ══ -->
+  <div class="panel" id="p3">
+    <h2 class="sec">Importez les balances</h2>
+    <p class="hint">Formats acceptés : .xlsx / .xls. L'application détecte automatiquement les colonnes (compte, intitulé, soldes initiaux, mouvements, soldes finaux). Le reste des états se remplit automatiquement.</p>
+    <div class="drop-grid">
+      <div class="drop" id="drop-BN"><div class="drop-label">Balance N (obligatoire)</div><div class="drop-hint">Balance générale de l'exercice à monter</div><div class="drop-fname" id="fname-BN"></div><input type="file" id="file-BN" accept=".xlsx,.xls"></div>
+      <div class="drop" id="drop-BN1"><div class="drop-label">Balance N-1 (recommandée)</div><div class="drop-hint">Balance de l'exercice précédent (colonne comparative)</div><div class="drop-fname" id="fname-BN1"></div><input type="file" id="file-BN1" accept=".xlsx,.xls"></div>
+    </div>
+    <div class="status" id="st3"></div>
+    <div class="ctl-row" id="ctl3"></div>
+    <div class="actions">
+      <button class="btn-ghost" onclick="go(2)">← Retour</button>
+      <button class="btn-primary" id="btn-s3" disabled onclick="runMontage()">⚙️ Monter les états financiers →</button>
+    </div>
+  </div>
+
+  <!-- ══ ÉTAPE 4 : ÉTATS & EXPORTS ══ -->
+  <div class="panel" id="p4">
+    <h2 class="sec" id="titre4">États financiers</h2>
+    <div class="ctl-row" id="controls"></div>
+    <div class="sub-tabs">
+      <div class="sub-tab active" data-sub="actif" onclick="subTab(this)">Bilan — Actif</div>
+      <div class="sub-tab" data-sub="passif" onclick="subTab(this)">Bilan — Passif</div>
+      <div class="sub-tab" data-sub="cr" onclick="subTab(this)">Compte de résultat</div>
+      <div class="sub-tab" data-sub="tft" onclick="subTab(this)">Flux de trésorerie</div>
+    </div>
+    <div class="sub-panel active" id="sub-actif"></div>
+    <div class="sub-panel" id="sub-passif"></div>
+    <div class="sub-panel" id="sub-cr"></div>
+    <div class="sub-panel" id="sub-tft"></div>
+
+    <div class="exp-grid">
+      <div class="exp">
+        <h3>🏛️ Export Excel — modèle officiel DGID</h3>
+        <p id="dgid-txt">L'application reporte automatiquement la fiche R1, la page de garde, le <strong>bilan paysage</strong>, le <strong>compte de résultat</strong> et le <strong>tableau des flux de trésorerie</strong> dans les cellules exactes du <strong>modèle officiel DGID</strong> intégré à l'application. Aucun fichier à déposer — le résultat est strictement au format DGID.</p>
+        <button class="btn-primary" id="btn-dgid" onclick="exportDGID()">Générer le fichier DGID</button>
+        <div class="status" id="st-dgid"></div>
+        <div class="note warn" id="dgid-note-sys" style="display:none;">⚠️ Le modèle DGID est au référentiel <strong>SYSCOHADA</strong>. Pour une entité SYCEBNL, les rubriques les plus proches sont reportées : vérifiez avant dépôt.</div>
+        <div class="note info" style="margin-top:8px;">Note : les <strong>notes annexes 1 à 36</strong> ne sont pas encore remplies automatiquement (à compléter dans le fichier généré). Bilan, compte de résultat et flux de trésorerie sont, eux, remplis automatiquement.</div>
+      </div>
+      <div class="exp">
+        <h3>🖨️ Export PDF</h3>
+        <p>Génère un PDF propre (une page par état : bilan actif, bilan passif, compte de résultat, flux de trésorerie) avec l'en-tête de l'entité. Dans la boîte d'impression, choisissez « Enregistrer au format PDF ».</p>
+        <button class="btn-secondary" onclick="exportPDF()">Exporter en PDF</button>
+      </div>
+      <div class="exp">
+        <h3>📗 Liasse Excel (masque du système)</h3>
+        <p>Alternative : génère la liasse dans le <strong>masque Excel</strong> du système choisi (les formules du masque recalculent tout dans Excel). Le masque SYCEBNL est intégré ; pour un autre masque, vous pouvez le déposer.</p>
+        <button class="btn-primary" id="btn-tpl" onclick="exportLiasse()">Générer la liasse (masque)</button>
+        <div class="drop" id="drop-TPL" style="margin-top:10px;"><div class="drop-label">Masque personnalisé (.xlsx) — facultatif</div><div class="drop-hint">sinon le masque intégré est utilisé</div><div class="drop-fname" id="fname-TPL"></div><input type="file" id="file-TPL" accept=".xlsx"></div>
+        <div class="status" id="st-tpl"></div>
+      </div>
+    </div>
+    <div class="actions"><button class="btn-ghost" onclick="go(3)">← Retour aux balances</button></div>
+  </div>
+</div>
+
+<div id="print-zone"></div>
+
+<script>
+// ===== MAPPING SYCEBNL (transpilé du modèle officiel) =====
+const SYCEBNL_ACTIF=[
+  {row:10,ref:"AA",label:"Immobilisations destinées à la vente provenant de dons et legs non encore reçu et usufruit temporaire",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>((V('E',11)+V('E',12))),amort:(SD,SC,V,PAY,PAY1,CTX)=>((V('F',11)+V('F',12))),total:true},
+  {row:11,ref:"AB",label:"Immobilisations incorporelles",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('201')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('280')+SC('290')),total:false},
+  {row:12,ref:"AC",label:"Immobilisations corporelles et financières",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('202')+SD('203')+SD('204')+SD('205')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(0),total:false},
+  {row:13,ref:"AD",label:"Immobilisations incorporelles",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('21')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('281')+SC('291')),total:false},
+  {row:14,ref:"AE",label:"Brevets, licences, logiciels et droits similaires",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('212')+SD('213')+SD('214')+SD('219')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('2812')+SC('2813')+SC('2814')+SC('2912')+SC('2913')+SC('2914')),total:false},
+  {row:15,ref:"AF",label:"Autres immobilisations incorporelles",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('217')+SD('218')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('2817')+SC('2818')+SC('2918')),total:false},
+  {row:16,ref:"AG",label:"Avances et acomptes versés sur immobilisations incorporelles",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('251')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('2951')),total:false},
+  {row:17,ref:"AH",label:"Immobilisations corporelles",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>((V('E',18)+V('E',19)+V('E',20)+V('E',21)+V('E',22)+V('E',23))),amort:(SD,SC,V,PAY,PAY1,CTX)=>((V('F',18)+V('F',19)+V('F',20)+V('F',21)+V('F',22)+V('F',23))),total:true},
+  {row:18,ref:"AI",label:"Terrains",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('22')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('282')+SC('292')),total:false},
+  {row:19,ref:"AJ",label:"Bâtiments",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('231')+SD('232')+SD('233')+SD('2391')+SD('2392')+SD('2393')+SD('2396')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('2831')+SC('2832')+SC('2833')+SC('2931')+SC('2932')+SC('2933')+SC('2939')),total:false},
+  {row:20,ref:"AK",label:"Aménagements, agencements et installations",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('234')+SD('235')+SD('238')+SD('2394')+SD('2395')+SD('2398')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('2834')+SC('2835')+SC('2838')+SC('2934')+SC('2935')+SC('2938')+SC('2939')),total:false},
+  {row:21,ref:"AL",label:"Matériel, mobilier et actifs biologiques",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('24')-SD('245')-SD('2495')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('284')-SC('2845')+SC('294')-SC('2945')-SC('2949')),total:false},
+  {row:22,ref:"AM",label:"Matériel de transport",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('245')+SD('2495')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('2845')+SC('2945')+SC('2949')),total:false},
+  {row:23,ref:"AN",label:"Avances et acomptes versés sur immobilisations corporelles",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('252')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('2952')),total:false},
+  {row:24,ref:"AO",label:"Immobilisations Financières",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>((V('E',25)+V('E',26))),amort:(SD,SC,V,PAY,PAY1,CTX)=>((V('F',25)+V('F',26))),total:true},
+  {row:25,ref:"AG",label:"Titres de participation",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('26')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('296')),total:false},
+  {row:26,ref:"AH",label:"Autres immobilisations financières",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('27')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('297')),total:false},
+  {row:27,ref:"AZ",label:"TOTAL ACTIF IMMOBILISE",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>((V('E',10)+V('E',13)+V('E',17)+V('E',24))),amort:(SD,SC,V,PAY,PAY1,CTX)=>((V('F',10)+V('F',13)+V('F',17)+V('F',24))),total:true},
+  {row:28,ref:"BA",label:"Actif circulant HAO",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('485')+SD('486')+SD('488')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('498')),total:false},
+  {row:29,ref:"BB",label:"Stocks et encours",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('31')+SD('32')+SD('33')+SD('34')+SD('36')+SD('38')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('39')),total:false},
+  {row:30,ref:"BC",label:"Fournisseurs débiteurs",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('40')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('490')),total:false},
+  {row:31,ref:"BD",label:"Adhérents, Clients- usagers",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('41')-SD('419')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('491')),total:false},
+  {row:32,ref:"BE",label:"Autres créances",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('42')+SD('43')+SD('44')+SD('45')+SD('46')+SD('47')-SD('478')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('492')+SC('493')+SC('494')+SC('497')),total:false},
+  {row:33,ref:"BF",label:"TOTAL ACTIF CIRCULANT",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>((V('E',28)+V('E',29)+V('E',30)+V('E',31)+V('E',32))),amort:(SD,SC,V,PAY,PAY1,CTX)=>((V('F',28)+V('F',29)+V('F',30)+V('F',31)+V('F',32))),total:true},
+  {row:34,ref:"",label:"Titres de placement",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('50')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('590')),total:false},
+  {row:35,ref:"BV",label:"Valeurs  à encaisser",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('51')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('591')),total:false},
+  {row:36,ref:"BW",label:"Banques, établissements financières, caisses et assimilés",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('52')+SD('53')+SD('55')+SD('57')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(SC('592')+SC('593')+SC('595')),total:false},
+  {row:37,ref:"BX",label:"TOTAL TRESORERIE ACTIF",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>((V('E',35)+V('E',36))),amort:(SD,SC,V,PAY,PAY1,CTX)=>((V('F',35)+V('F',36))),total:true},
+  {row:38,ref:"BY",label:"Ecart de conversion-Actif",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(SD('478')),amort:(SD,SC,V,PAY,PAY1,CTX)=>(0),total:false},
+  {row:39,ref:"BZ",label:"TOTAL GENERAL",note:"",brut:(SD,SC,V,PAY,PAY1,CTX)=>(V('E',27)+V('E',33)+V('E',37)+V('E',38)),amort:(SD,SC,V,PAY,PAY1,CTX)=>(V('F',27)+V('F',33)+V('F',37)+V('F',38)),total:true},
+];
+const SYCEBNL_PASSIF=[
+  {row:10,ref:"CA",label:"Dotation non consomptible sans droit de réprise",note:"15",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('101')),total:false},
+  {row:11,ref:"CB",label:"Dotation non consomptible avec droit de réprise",note:"15",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('102')),total:false},
+  {row:12,ref:"CC",label:"Droit d'entrée",note:"15",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('103')),total:false},
+  {row:13,ref:"CD",label:"Dotation consomptible",note:"15",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('104')),total:false},
+  {row:14,ref:"CE",label:"Ecarts de réévaluation",note:"15",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('106')),total:false},
+  {row:15,ref:"CF",label:"Réserves",note:"15",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('11')),total:false},
+  {row:16,ref:"CG",label:"Report à nouveau (+ ou -)",note:"15",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('121')-SD('129')),total:false},
+  {row:17,ref:"CH",label:"Solde des opérations de l'exercice (excédent + ou déficit -)",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(CTX.resultatN),total:false},
+  {row:18,ref:"CI",label:"Subvention d'investissement",note:"17A",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('14')),total:false},
+  {row:19,ref:"CJ",label:"Provisions réglementées",note:"17A",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('15')),total:false},
+  {row:20,ref:"CK",label:"TOTAL FONDS PROPRES ET ASSIMILES",note:"",net:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',10)+V('H',11)+V('H',12)+V('H',13)+V('H',14)+V('H',15)+V('H',16)+V('H',17)+V('H',18)+V('H',19))),total:true},
+  {row:21,ref:"CW",label:"Fonds affectés et provenant de dons et legs d'immobilisations",note:"17B",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('16')),total:false},
+  {row:22,ref:"CX",label:"Fonds reportés",note:"17B",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('17')),total:false},
+  {row:23,ref:"CY",label:"TOTAL FONDS AFFECTES ET REPORTES",note:"",net:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',21)+V('H',22))),total:true},
+  {row:24,ref:"CZ",label:"TOTAL RESSOURCES PROPRES ET ASSIMILES",note:"",net:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',20)+V('H',23))),total:true},
+  {row:25,ref:"DA",label:"Emprunts et dettes financières",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('181')+SC('182')+SC('183')+SC('186')),total:false},
+  {row:26,ref:"DB",label:"Dettes de location acquisition",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('187')),total:false},
+  {row:27,ref:"DC",label:"Provisions pour risques et charges",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('19')),total:false},
+  {row:28,ref:"DD",label:"TOTAL DETTES FINANCIERES ET RESSOURCES ASSIMILEES",note:"",net:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',25)+V('H',26)+V('H',27))),total:true},
+  {row:29,ref:"DE",label:"TOTAL RESSOURCES STABLES",note:"",net:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',24)+V('H',28))),total:true},
+  {row:30,ref:"DF",label:"Dettes circulantes HAO",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('481')+SC('484')+SC('488')+SC('4998')),total:false},
+  {row:31,ref:"DG",label:"Adhérents, Clients-usagers créditeurs",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('41')),total:false},
+  {row:32,ref:"DH",label:"Fournisseurs",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('40')),total:false},
+  {row:33,ref:"DI",label:"Autres dettes",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('42')+SC('43')+SC('44')+SC('45')+SC('46')+SC('47')-SC('479')),total:false},
+  {row:34,ref:"DJ",label:"Provisions pour risques et charges à court terme",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('499')-SC('4998')+SC('599')),total:false},
+  {row:35,ref:"DV",label:"TOTAL PASSIF CIRCULANT",note:"",net:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',30)+V('H',31)+V('H',32)+V('H',33)+V('H',34))),total:true},
+  {row:36,ref:"",label:"Banques, escompte de crédits ordinaires",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('565')),total:false},
+  {row:37,ref:"DW",label:"Banques, établissements financiers et crédits de trésorerie",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('52')+SC('53')+SC('561')+SC('566')),total:false},
+  {row:38,ref:"DX",label:"TOTAL TRESORERIE PASSIF",note:"",net:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',36)+V('H',37))),total:true},
+  {row:39,ref:"DY",label:"Ecart de conversion-Passif",note:"None",net:(SD,SC,V,PAY,PAY1,CTX)=>(SC('479')),total:false},
+  {row:40,ref:"DZ",label:"TOTAL GENERAL",note:"",net:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',29)+V('H',35)+V('H',38)-V('H',39))),total:true},
+];
+const SYCEBNL_CR=[
+  {row:12,ref:"RA",label:"Cotisations",note:"23",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SC('701')-SD('701')),total:false},
+  {row:13,ref:"RB",label:"Dotations consomptibles transférées au compte de résultat",note:"23",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>((SC('702')-SD('702'))+(SC('703')-SD('703'))),total:false},
+  {row:14,ref:"RC",label:"Revenus liés à la générosité",note:"23",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SC('704')-SD('704')),total:false},
+  {row:15,ref:"RD",label:"Vente de marchandises",note:"23",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SC('7051')-SD('7051')),total:false},
+  {row:16,ref:"RE",label:"Vente de services et produits finis",note:"23",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>((SC('706')-(SD('706'))+(SC('707')-(SD('707')+(SC('708')-SD('708')))))),total:false},
+  {row:17,ref:"RF",label:"Subventions d'exploitations",note:"23",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SC('71')-SD('71')),total:false},
+  {row:18,ref:"RG",label:"Autres produits et transfert de charges",note:"23",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>((SC('708')+SC('72')+SC('73')+SC('75')+SC('77')+SC('78'))-(SD('708')+SD('72')+SD('73')+SD('75')+SD('77')+SD('78'))),total:false},
+  {row:19,ref:"RH",label:"Reprise de provisions, dépréciations, subventions et autres reprises",note:"5D&30",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SC('791')+SC('792')+SC('795')+SC('796')+SC('797')+SC('798')+SC('799')),total:false},
+  {row:20,ref:"XA",label:"REVENUS DES ACTIVITES ORDINAIRES (Somme RA à RE)",note:"",signe:"",val:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',12)+V('H',13)+V('H',14)+V('H',15)+V('H',16)+V('H',17)+V('H',18)+V('H',19))),total:true},
+  {row:21,ref:"TA",label:"Achats de biens et services liés à l'activité",note:"24",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('601')),total:false},
+  {row:22,ref:"TB",label:"Variation de stocks des achats de biens et services liés à l'activité",note:"",signe:"(+ / -)",val:(SD,SC,V,PAY,PAY1,CTX)=>((SD('6031')-SC('6031'))),total:false},
+  {row:23,ref:"TC",label:"Achats de marchandises et matières premières",note:"24",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('602')),total:false},
+  {row:24,ref:"TD",label:"Autres achats",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('604')+SD('605')+SD('606')+SD('608')),total:false},
+  {row:25,ref:"TE",label:"Variation de stocks de marchandises, matières et fournitures et autres",note:"",signe:"(+ / -)",val:(SD,SC,V,PAY,PAY1,CTX)=>((SD('6032')-SC('6032'))+(SD('6033')-SC('6033'))+(SD('6035')-SC('6035'))),total:false},
+  {row:26,ref:"TF",label:"Transports",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('61')),total:false},
+  {row:27,ref:"TG",label:"Services extérieurs",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('62')+SD('63')),total:false},
+  {row:28,ref:"TH",label:"Impôts et taxes",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('64')),total:false},
+  {row:29,ref:"TI",label:"Autres charges",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('65')),total:false},
+  {row:30,ref:"TJ",label:"Charges de personnel",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('66')+SC('66')),total:false},
+  {row:31,ref:"TK",label:"Frais financiers et charges assimilées",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('67')),total:false},
+  {row:32,ref:"TL",label:"Dotations aux amortissements, provisions, dépréciations et autres",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('68')+SD('69')),total:false},
+  {row:33,ref:"XB",label:"CHARGES DES ACTIVITES ORDINAIRES (Somme TA à TL)",note:"",signe:"",val:(SD,SC,V,PAY,PAY1,CTX)=>((V('H',21)+V('H',22)+V('H',23)+V('H',24)+V('H',25)+V('H',26)+V('H',27)+V('H',28)+V('H',29)+V('H',30)+V('H',31)+V('H',32))),total:true},
+  {row:34,ref:"XC",label:"RESULTAT DES ACTIVITES ORDINAIRES (XA-XB)",note:"",signe:"",val:(SD,SC,V,PAY,PAY1,CTX)=>(V('H',20)-V('H',33)),total:true},
+  {row:35,ref:"TM",label:"Produits H.A.O",note:"",signe:"+",val:(SD,SC,V,PAY,PAY1,CTX)=>(SC('82')+SC('84')+SC('86')+SC('88')),total:false},
+  {row:36,ref:"TN",label:"Charges H.A.O",note:"",signe:"-",val:(SD,SC,V,PAY,PAY1,CTX)=>(SD('81')+SD('83')+SD('85')+SD('87')),total:false},
+  {row:37,ref:"XD",label:"RESULTAT HAO (TM-TN)",note:"",signe:"",val:(SD,SC,V,PAY,PAY1,CTX)=>(V('H',35)-V('H',36)),total:true},
+  {row:38,ref:"XC",label:"SOLDE DES OPERATIONS DE L'EXERCICE: XA-XB",note:"",signe:"",val:(SD,SC,V,PAY,PAY1,CTX)=>(V('H',34)+V('H',37)),total:true},
+];
+
+</script>
+
+<script>
+/* ══════════════ MAPPING SYSCOHADA RÉVISÉ (système normal) ══════════════ */
+const SYSCO_ACTIF=[
+ {ref:"AD",label:"IMMOBILISATIONS INCORPORELLES",kids:["AE","AF","AG","AH"],total:true},
+ {ref:"AE",label:"Frais de développement et de prospection",brut:(SD,SC)=>SD('211')+SD('2181'),amort:(SD,SC)=>SC('2811')+SC('2911')+SC('28181')+SC('29181')},
+ {ref:"AF",label:"Brevets, licences, logiciels et droits similaires",brut:(SD,SC)=>SD('212')+SD('213')+SD('214'),amort:(SD,SC)=>SC('2812')+SC('2813')+SC('2814')+SC('2912')+SC('2913')+SC('2914')},
+ {ref:"AG",label:"Fonds commercial et droit au bail",brut:(SD,SC)=>SD('215')+SD('216'),amort:(SD,SC)=>SC('2815')+SC('2816')+SC('2915')+SC('2916')},
+ {ref:"AH",label:"Autres immobilisations incorporelles",brut:(SD,SC)=>SD('217')+SD('218')-SD('2181')+SD('219'),amort:(SD,SC)=>SC('2817')+SC('2818')-SC('28181')+SC('2917')+SC('2918')-SC('29181')+SC('2919')},
+ {ref:"AI",label:"IMMOBILISATIONS CORPORELLES",kids:["AJ","AK","AL","AM","AN"],total:true},
+ {ref:"AJ",label:"Terrains",brut:(SD,SC)=>SD('22'),amort:(SD,SC)=>SC('282')+SC('292')},
+ {ref:"AK",label:"Bâtiments",brut:(SD,SC)=>SD('231')+SD('232')+SD('233')+SD('237')+SD('2391'),amort:(SD,SC)=>SC('2831')+SC('2832')+SC('2833')+SC('2837')+SC('2931')+SC('2932')+SC('2933')+SC('2937')},
+ {ref:"AL",label:"Aménagements, agencements et installations",brut:(SD,SC)=>SD('234')+SD('235')+SD('238')+SD('2392')+SD('2393'),amort:(SD,SC)=>SC('2834')+SC('2835')+SC('2838')+SC('2934')+SC('2935')+SC('2938')},
+ {ref:"AM",label:"Matériel, mobilier et actifs biologiques",brut:(SD,SC)=>SD('24')-SD('245')-SD('2495'),amort:(SD,SC)=>SC('284')-SC('2845')+SC('294')-SC('2945')},
+ {ref:"AN",label:"Matériel de transport",brut:(SD,SC)=>SD('245')+SD('2495'),amort:(SD,SC)=>SC('2845')+SC('2945')},
+ {ref:"AP",label:"Avances et acomptes versés sur immobilisations",brut:(SD,SC)=>SD('25'),amort:(SD,SC)=>SC('295')},
+ {ref:"AQ",label:"IMMOBILISATIONS FINANCIÈRES",kids:["AR","AS"],total:true},
+ {ref:"AR",label:"Titres de participation",brut:(SD,SC)=>SD('26'),amort:(SD,SC)=>SC('296')},
+ {ref:"AS",label:"Autres immobilisations financières",brut:(SD,SC)=>SD('27'),amort:(SD,SC)=>SC('297')},
+ {ref:"AZ",label:"TOTAL ACTIF IMMOBILISÉ",kids:["AD","AI","AP","AQ"],total:true,grand:true},
+ {ref:"BA",label:"Actif circulant HAO",brut:(SD,SC)=>SD('485')+SD('488'),amort:(SD,SC)=>SC('498')},
+ {ref:"BB",label:"Stocks et encours",brut:(SD,SC)=>SD('31')+SD('32')+SD('33')+SD('34')+SD('35')+SD('36')+SD('37')+SD('38'),amort:(SD,SC)=>SC('39')},
+ {ref:"BG",label:"CRÉANCES ET EMPLOIS ASSIMILÉS",kids:["BH","BI","BJ"],total:true},
+ {ref:"BH",label:"Fournisseurs, avances versées",brut:(SD,SC)=>SD('409'),amort:(SD,SC)=>SC('490')},
+ {ref:"BI",label:"Clients",brut:(SD,SC)=>SD('41')-SD('419'),amort:(SD,SC)=>SC('491')},
+ {ref:"BJ",label:"Autres créances",brut:(SD,SC)=>SD('185')+SD('42')+SD('43')+SD('44')+SD('45')+SD('46')+SD('47')-SD('478'),amort:(SD,SC)=>SC('492')+SC('493')+SC('494')+SC('495')+SC('496')+SC('497')},
+ {ref:"BK",label:"TOTAL ACTIF CIRCULANT",kids:["BA","BB","BG"],total:true,grand:true},
+ {ref:"BQ",label:"Titres de placement",brut:(SD,SC)=>SD('50'),amort:(SD,SC)=>SC('590')},
+ {ref:"BR",label:"Valeurs à encaisser",brut:(SD,SC)=>SD('51'),amort:(SD,SC)=>SC('591')},
+ {ref:"BS",label:"Banques, chèques postaux, caisse et assimilés",brut:(SD,SC)=>SD('52')+SD('53')+SD('54')+SD('55')+SD('57')+SD('581')+SD('582'),amort:(SD,SC)=>SC('592')+SC('593')+SC('594')},
+ {ref:"BT",label:"TOTAL TRÉSORERIE-ACTIF",kids:["BQ","BR","BS"],total:true,grand:true},
+ {ref:"BU",label:"Écart de conversion-Actif",brut:(SD,SC)=>SD('478'),amort:(SD,SC)=>0},
+ {ref:"BZ",label:"TOTAL GÉNÉRAL",kids:["AZ","BK","BT","BU"],total:true,grand:true},
+];
+const SYSCO_PASSIF=[
+ {ref:"CA",label:"Capital",net:(SD,SC)=>SC('101')+SC('102')+SC('103')+SC('104')},
+ {ref:"CB",label:"Apporteurs, capital non appelé (−)",net:(SD,SC)=>-SD('109')},
+ {ref:"CD",label:"Primes liées au capital social",net:(SD,SC)=>SC('105')},
+ {ref:"CE",label:"Écarts de réévaluation",net:(SD,SC)=>SC('106')},
+ {ref:"CF",label:"Réserves indisponibles",net:(SD,SC)=>SC('111')+SC('112')+SC('113')},
+ {ref:"CG",label:"Réserves libres",net:(SD,SC)=>SC('118')},
+ {ref:"CH",label:"Report à nouveau (+ ou −)",net:(SD,SC)=>SC('12')-SD('12')},
+ {ref:"CJ",label:"Résultat net de l'exercice (bénéfice + ou perte −)",net:(SD,SC,CTX)=>CTX.resultatN},
+ {ref:"CL",label:"Subventions d'investissement",net:(SD,SC)=>SC('14')},
+ {ref:"CM",label:"Provisions réglementées",net:(SD,SC)=>SC('15')},
+ {ref:"CP",label:"TOTAL CAPITAUX PROPRES ET RESSOURCES ASSIMILÉES",kids:["CA","CB","CD","CE","CF","CG","CH","CJ","CL","CM"],total:true,grand:true},
+ {ref:"DA",label:"Emprunts et dettes financières diverses",net:(SD,SC)=>SC('16')+SC('181')+SC('182')+SC('183')+SC('184')-SC('166')},
+ {ref:"DB",label:"Dettes de location acquisition",net:(SD,SC)=>SC('17')},
+ {ref:"DC",label:"Provisions pour risques et charges",net:(SD,SC)=>SC('19')},
+ {ref:"DD",label:"TOTAL DETTES FINANCIÈRES ET RESSOURCES ASSIMILÉES",kids:["DA","DB","DC"],total:true},
+ {ref:"DF",label:"TOTAL RESSOURCES STABLES",kids:["CP","DD"],total:true,grand:true},
+ {ref:"DH",label:"Dettes circulantes HAO",net:(SD,SC)=>SC('481')+SC('482')+SC('484')+SC('488')},
+ {ref:"DI",label:"Clients, avances reçues",net:(SD,SC)=>SC('419')},
+ {ref:"DJ",label:"Fournisseurs d'exploitation",net:(SD,SC)=>SC('40')-SC('409')},
+ {ref:"DK",label:"Dettes fiscales et sociales",net:(SD,SC)=>SC('42')+SC('43')+SC('44')},
+ {ref:"DM",label:"Autres dettes",net:(SD,SC)=>SC('185')+SC('45')+SC('46')+SC('47')-SC('479')},
+ {ref:"DN",label:"Provisions pour risques à court terme",net:(SD,SC)=>SC('499')+SC('599')},
+ {ref:"DP",label:"TOTAL PASSIF CIRCULANT",kids:["DH","DI","DJ","DK","DM","DN"],total:true,grand:true},
+ {ref:"DQ",label:"Banques, crédits d'escompte",net:(SD,SC)=>SC('564')+SC('565')},
+ {ref:"DR",label:"Banques, établissements financiers et crédits de trésorerie",net:(SD,SC)=>SC('52')+SC('53')+SC('561')+SC('566')},
+ {ref:"DT",label:"TOTAL TRÉSORERIE-PASSIF",kids:["DQ","DR"],total:true,grand:true},
+ {ref:"DV",label:"Écart de conversion-Passif",net:(SD,SC)=>SC('479')},
+ {ref:"DZ",label:"TOTAL GÉNÉRAL",kids:["DF","DP","DT","DV"],total:true,grand:true},
+];
+const SYSCO_CR=[
+ {ref:"TA",label:"Ventes de marchandises",s:"+",net:(SD,SC)=>SC('701')-SD('701')},
+ {ref:"RA",label:"Achats de marchandises",s:"−",net:(SD,SC)=>-(SD('601')-SC('601'))},
+ {ref:"RB",label:"Variation de stocks de marchandises",s:"− / +",net:(SD,SC)=>-(SD('6031')-SC('6031'))},
+ {ref:"XA",label:"MARGE COMMERCIALE",kids:["TA","RA","RB"],total:true,grand:true},
+ {ref:"TB",label:"Ventes de produits fabriqués",s:"+",net:(SD,SC)=>SC('702')+SC('703')+SC('704')-SD('702')-SD('703')-SD('704')},
+ {ref:"TC",label:"Travaux, services vendus",s:"+",net:(SD,SC)=>SC('705')+SC('706')-SD('705')-SD('706')},
+ {ref:"TD",label:"Produits accessoires",s:"+",net:(SD,SC)=>SC('707')-SD('707')},
+ {ref:"XB",label:"CHIFFRE D'AFFAIRES (A + B + C + D)",kids:["TA","TB","TC","TD"],total:true,grand:true},
+ {ref:"TE",label:"Production stockée (ou déstockage)",s:"− / +",net:(SD,SC)=>SC('73')-SD('73')},
+ {ref:"TF",label:"Production immobilisée",s:"+",net:(SD,SC)=>SC('72')-SD('72')},
+ {ref:"TG",label:"Subventions d'exploitation",s:"+",net:(SD,SC)=>SC('71')-SD('71')},
+ {ref:"TH",label:"Autres produits",s:"+",net:(SD,SC)=>SC('75')-SD('75')},
+ {ref:"TI",label:"Transferts de charges d'exploitation",s:"+",net:(SD,SC)=>SC('781')},
+ {ref:"RC",label:"Achats de matières premières et fournitures liées",s:"−",net:(SD,SC)=>-(SD('602')-SC('602'))},
+ {ref:"RD",label:"Variation de stocks de matières premières",s:"− / +",net:(SD,SC)=>-(SD('6032')-SC('6032'))},
+ {ref:"RE",label:"Autres achats",s:"−",net:(SD,SC)=>-(SD('604')+SD('605')+SD('608')-SC('604')-SC('605')-SC('608'))},
+ {ref:"RF",label:"Variation de stocks d'autres approvisionnements",s:"− / +",net:(SD,SC)=>-(SD('6033')-SC('6033'))},
+ {ref:"RG",label:"Transports",s:"−",net:(SD,SC)=>-(SD('61')-SC('61'))},
+ {ref:"RH",label:"Services extérieurs",s:"−",net:(SD,SC)=>-(SD('62')+SD('63')-SC('62')-SC('63'))},
+ {ref:"RI",label:"Impôts et taxes",s:"−",net:(SD,SC)=>-(SD('64')-SC('64'))},
+ {ref:"RJ",label:"Autres charges",s:"−",net:(SD,SC)=>-(SD('65')-SC('65'))},
+ {ref:"XC",label:"VALEUR AJOUTÉE (XB + RA + RB) + (somme TE à RJ)",kids:["XB","RA","RB","TE","TF","TG","TH","TI","RC","RD","RE","RF","RG","RH","RI","RJ"],total:true,grand:true},
+ {ref:"RK",label:"Charges de personnel",s:"−",net:(SD,SC)=>-(SD('66')-SC('66'))},
+ {ref:"XD",label:"EXCÉDENT BRUT D'EXPLOITATION",kids:["XC","RK"],total:true,grand:true},
+ {ref:"TJ",label:"Reprises d'amortissements, provisions et dépréciations",s:"+",net:(SD,SC)=>SC('791')+SC('798')+SC('799')},
+ {ref:"RL",label:"Dotations aux amortissements, aux provisions et dépréciations",s:"−",net:(SD,SC)=>-(SD('681')+SD('691'))},
+ {ref:"XE",label:"RÉSULTAT D'EXPLOITATION",kids:["XD","TJ","RL"],total:true,grand:true},
+ {ref:"TK",label:"Revenus financiers et assimilés",s:"+",net:(SD,SC)=>SC('77')-SD('77')},
+ {ref:"TL",label:"Reprises de provisions et dépréciations financières",s:"+",net:(SD,SC)=>SC('797')},
+ {ref:"TM",label:"Transferts de charges financières",s:"+",net:(SD,SC)=>SC('787')},
+ {ref:"RM",label:"Frais financiers et charges assimilées",s:"−",net:(SD,SC)=>-(SD('67')-SC('67'))},
+ {ref:"RN",label:"Dotations aux provisions et dépréciations financières",s:"−",net:(SD,SC)=>-(SD('687')+SD('697'))},
+ {ref:"XF",label:"RÉSULTAT FINANCIER",kids:["TK","TL","TM","RM","RN"],total:true,grand:true},
+ {ref:"XG",label:"RÉSULTAT DES ACTIVITÉS ORDINAIRES",kids:["XE","XF"],total:true,grand:true},
+ {ref:"TN",label:"Produits des cessions d'immobilisations",s:"+",net:(SD,SC)=>SC('82')-SD('82')},
+ {ref:"TO",label:"Autres produits HAO",s:"+",net:(SD,SC)=>SC('84')+SC('86')+SC('88')-SD('84')-SD('88')},
+ {ref:"RO",label:"Valeurs comptables des cessions d'immobilisations",s:"−",net:(SD,SC)=>-(SD('81')-SC('81'))},
+ {ref:"RP",label:"Autres charges HAO",s:"−",net:(SD,SC)=>-(SD('83')+SD('85')-SC('83')-SC('85'))},
+ {ref:"XH",label:"RÉSULTAT HORS ACTIVITÉS ORDINAIRES",kids:["TN","TO","RO","RP"],total:true,grand:true},
+ {ref:"RQ",label:"Participation des travailleurs",s:"−",net:(SD,SC)=>-(SD('87')-SC('87'))},
+ {ref:"RS",label:"Impôts sur le résultat",s:"−",net:(SD,SC)=>-(SD('89')-SC('89'))},
+ {ref:"XI",label:"RÉSULTAT NET",kids:["XG","XH","RQ","RS"],total:true,grand:true},
+];
+
+/* ══════════════ ÉTAT / OUTILS ══════════════ */
+const M = { sys:null, fiche:{}, balN:null, balN1:null, tpl:null, dgid:null, out:null };
+const $ = id=>document.getElementById(id);
+function fmt(v){ if(v===null||v===undefined||isNaN(v)) return ''; const r=Math.round(v); if(r===0) return '-'; const s=Math.abs(r).toLocaleString('fr-FR'); return r<0?'('+s+')':s; }
+function num(v){ if(v===undefined||v===null||v==='') return 0; if(typeof v==='number') return isNaN(v)?0:v;
+  let s=String(v).trim().replace(/[\s\u202f\u00a0]/g,'');
+  const par=/^\((.*)\)$/.exec(s); if(par) s='-'+par[1];
+  if(/,\d{1,2}$/.test(s)) s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(/,/g,'');
+  const n=parseFloat(s); return isNaN(n)?0:n; }
+
+/* ══ Navigation ══ */
+function go(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  $('p'+n).classList.add('active');
+  document.querySelectorAll('.step').forEach(s=>{
+    const k=+s.dataset.step;
+    s.classList.toggle('active',k===n);
+    s.classList.toggle('done',k<n);
+  });
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.step').forEach(s=>s.addEventListener('click',()=>{
+  const k=+s.dataset.step;
+  if(k===1) go(1);
+  if(k===2&&M.sys) go(2);
+  if(k===3&&M.sys) go(3);
+  if(k===4&&M.out) go(4);
+}));
+function subTab(el){
+  document.querySelectorAll('.sub-tab').forEach(t=>t.classList.toggle('active',t===el));
+  document.querySelectorAll('.sub-panel').forEach(p=>p.classList.toggle('active',p.id==='sub-'+el.dataset.sub));
+}
+
+/* ══ Étape 1 ══ */
+function pickSys(el){
+  document.querySelectorAll('.sys-card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  M.sys=el.dataset.sys;
+  $('btn-s1').disabled=false;
+  buildFiche();
+}
+
+/* ══ Étape 2 : Fiche ══ */
+const FICHE_FIELDS=[
+ {sec:"Exercice"},
+ {k:'exDu',l:"Exercice du",t:'date'},{k:'exAu',l:"au",t:'date'},
+ {k:'arrete',l:"Date d'arrêté effectif des comptes",t:'date'},
+ {k:'prevClos',l:"Exercice précédent clos le",t:'date'},
+ {k:'dureePrev',l:"Durée exercice précédent (mois)",t:'number',ph:'12'},
+ {sec:"Identification de l'entité"},
+ {k:'denom',l:"Dénomination / désignation de l'entité *"},{k:'sigle',l:"Sigle usuel"},
+ {k:'ninea',l:"NINEA / N° IFU du contribuable (NCC)"},{k:'ntd',l:"N° de télédéclarant (NES / NTD)"},
+ {k:'rccm',l:"N° Registre du Commerce (RCCM)"},{k:'greffe',l:"Greffe"},
+ {k:'creation',l:"Date de création",t:'date'},{k:'repertoire',l:"N° Répertoire des entités"},
+ {k:'css',l:"N° de caisse sociale"},{k:'codeImp',l:"N° Code importateur"},
+ {k:'codeAct',l:"Code activité"},
+ {sec:"Coordonnées"},
+ {k:'adresse',l:"Adresse géographique complète",w:2},
+ {k:'ville',l:"Ville"},{k:'bp',l:"Boîte postale"},
+ {k:'tel',l:"Téléphone"},{k:'email',l:"Adresse e-mail"},
+ {k:'activite',l:"Désignation précise de l'activité principale",w:2},
+ {sec:"Fiscalité"},
+ {k:'centreImpot',l:"Centre des impôts"},{k:'commune',l:"Commune"},
+ {k:'formeJur',l:"Forme juridique",ph:'Association, Fondation, SARL…'},
+ {k:'regimeFiscal',l:"Régime fiscal",ph:'Réel normal…'},
+ {k:'pays',l:"Pays du siège social",ph:'Sénégal'},
+ {sec:"Dirigeant"},
+ {k:'dirNom',l:"Nom du dirigeant"},{k:'dirQualite',l:"Qualité"},
+ {k:'dirAdr',l:"Adresse"},{k:'dirTel',l:"Téléphone"},{k:'dirEmail',l:"E-mail"},
+ {sec:"Comptable / Expert-comptable"},
+ {k:'cptNom',l:"Comptable (nom)"},{k:'cptAdr',l:"Adresse"},{k:'cptTel',l:"Téléphone"},{k:'cptEmail',l:"E-mail"},
+ {k:'expert',l:"Expert-comptable ayant délivré le visa (nom, tél., n° ordre)",w:2},
+ {sec:"Signature des états financiers"},
+ {k:'sigNom',l:"Nom du signataire"},{k:'sigQualite',l:"Qualité du signataire"},
+ {k:'sigDate',l:"Date de signature",t:'date'},
+ {sec:"Domiciliations bancaires"},
+ {k:'bq1',l:"Banque 1"},{k:'bq1num',l:"N° de compte 1"},
+ {k:'bq2',l:"Banque 2"},{k:'bq2num',l:"N° de compte 2"},
+ {k:'bq3',l:"Banque 3"},{k:'bq3num',l:"N° de compte 3"},
+];
+function buildFiche(){
+  const saved = JSON.parse(localStorage.getItem('montage-fiche')||'{}');
+  M.fiche = saved;
+  let h='';
+  let open=false;
+  FICHE_FIELDS.forEach(f=>{
+    if(f.sec){ if(open) h+='</div>'; h+=`<h3>${f.sec}</h3><div class="fgrid">`; open=true; return; }
+    const v=(saved[f.k]||'').toString().replace(/"/g,'&quot;');
+    h+=`<div class="fg" style="${f.w===2?'grid-column:span 2;':''}"><label>${f.l}</label><input id="f-${f.k}" type="${f.t||'text'}" value="${v}" placeholder="${f.ph||''}"></div>`;
+  });
+  if(open) h+='</div>';
+  $('fiche-form').innerHTML=h;
+}
+function saveFiche(){
+  FICHE_FIELDS.forEach(f=>{ if(!f.sec) M.fiche[f.k]=$('f-'+f.k).value.trim(); });
+  localStorage.setItem('montage-fiche', JSON.stringify(M.fiche));
+  $('st2').textContent='Fiche enregistrée ✓'; $('st2').className='status ok';
+}
+function downloadFicheTemplate(){
+  const rows=[['Clé (ne pas modifier)','Libellé','Valeur']];
+  FICHE_FIELDS.forEach(f=>{ if(!f.sec) rows.push([f.k, f.l, (M.fiche[f.k]||'')]); });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:22},{wch:44},{wch:30}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Fiche');
+  XLSX.writeFile(wb,'FICHE_RENSEIGNEMENT_modele.xlsx');
+}
+function parseFicheExcel(file){
+  const st=$('st-fiche'); st.className='status'; st.textContent='Lecture…';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const byKey={}; const byLabel={};
+      FICHE_FIELDS.forEach(f=>{ if(!f.sec){ byKey[f.k.toLowerCase()]=f.k; byLabel[f.l.toLowerCase().trim()]=f.k; } });
+      let n=0;
+      aoa.forEach(r=>{
+        if(!r||!r.length) return;
+        const a=String(r[0]||'').toLowerCase().trim();
+        // valeur = dernière colonne non vide (col C si modèle, sinon col B)
+        let val='';
+        for(let i=r.length-1;i>=1;i--){ if(String(r[i]).trim()!==''){ val=String(r[i]).trim(); break; } }
+        let key=byKey[a]||byLabel[a];
+        if(!key){ // correspondance partielle sur le libellé
+          const hit=Object.keys(byLabel).find(lb=>lb && (lb.includes(a)||a.includes(lb)) && a.length>3);
+          if(hit) key=byLabel[hit];
+        }
+        if(key && val!==''){ M.fiche[key]=val; n++; }
+      });
+      localStorage.setItem('montage-fiche', JSON.stringify(M.fiche));
+      buildFiche();
+      st.className='status ok'; st.textContent=`Fiche importée ✓ — ${n} champ(s) renseigné(s).`;
+    }catch(err){ st.className='status err'; st.textContent='Import impossible : '+err.message; }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ══ Étape 3 : lecture des balances ══ */
+function bindDrop(key, cb){
+  const drop=$('drop-'+key), input=$('file-'+key);
+  drop.addEventListener('click',()=>input.click());
+  ['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();}));
+  drop.addEventListener('drop',ev=>{ev.preventDefault(); if(ev.dataTransfer.files[0]) cb(ev.dataTransfer.files[0]);});
+  input.addEventListener('change',()=>{ if(input.files[0]) cb(input.files[0]); });
+}
+function readWB(file){
+  return new Promise((res,rej)=>{ const r=new FileReader();
+    r.onload=e=>{ try{ res(XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:false})); }catch(err){ rej(err);} };
+    r.onerror=rej; r.readAsArrayBuffer(file); });
+}
+function parseBalance(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  // 1. localiser la ligne d'en-tête
+  const norm=s=>String(s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  let hi=-1, headers=null;
+  for(let i=0;i<Math.min(rows.length,25);i++){
+    const r=rows[i].map(norm);
+    if(r.some(c=>/COMPTE|CPTE|N ?°? ?CPT/.test(c)) && r.some(c=>/LIBEL|INTITUL/.test(c))){ hi=i; headers=r; break; }
+  }
+  let colC=0,colL=1,numCols=[];
+  if(hi>=0){
+    colC=headers.findIndex(c=>/COMPTE|CPTE|N ?°? ?CPT/.test(c));
+    colL=headers.findIndex(c=>/LIBEL|INTITUL/.test(c));
+    for(let j=0;j<headers.length;j++){
+      if(j===colC||j===colL) continue;
+      const h=headers[j]; if(!h) continue;
+      const deb=/DEB/.test(h), cred=/CRED|CREB/.test(h);
+      if(!(deb||cred)) continue;
+      let grp='sf';
+      if(/SI|INIT|OUVERT|REPORT|NOUVEAU|N-1|ANTERIEUR|A ?NOUV/.test(h) && !/SF|FINAL|FIN /.test(h)) grp='si';
+      else if(/MOUV|MVT|PERIODE|EXERCICE/.test(h) && !/SF|SOLDE/.test(h)) grp='mv';
+      else if(/SF|FINAL|FIN|CLOT|SOLDE/.test(h)) grp='sf';
+      numCols.push({j,grp,side:deb?'d':'c'});
+    }
+  }
+  // 2. données brutes
+  const start=hi>=0?hi+1:0;
+  const data=[];
+  for(let i=start;i<rows.length;i++){
+    const r=rows[i];
+    let cpte=String(r[colC]??'').trim().replace(/\s+/g,'').replace(/\.0+$/,'');
+    const lib=String(r[colL]??'').trim();
+    if(!cpte || !/^\d{2,}/.test(cpte)) continue;
+    if(/TOTAL|TOTAUX/.test(norm(lib))) continue;
+    cpte=cpte.match(/^\d+/)[0];
+    const e={cpte,lib,sid:0,sic:0,md:0,mc:0,sfd:0,sfc:0};
+    if(numCols.length>=2){
+      numCols.forEach(nc=>{ const v=num(r[nc.j]); const key=(nc.grp==='si'?'si':nc.grp==='mv'?'m':'sf')+nc.side; e[key]+=v; });
+    } else {
+      // fallback : colonnes numériques après le libellé ; 2 dernières = soldes finaux
+      const nums=[]; for(let j=Math.max(colC,colL)+1;j<r.length;j++){ nums.push(num(r[j])); }
+      while(nums.length&&nums[nums.length-1]===0&&nums.length>2) nums.pop();
+      if(nums.length>=6){ e.sid=nums[0];e.sic=nums[1];e.md=nums[2];e.mc=nums[3];e.sfd=nums[nums.length-2];e.sfc=nums[nums.length-1]; }
+      else if(nums.length>=4){ e.md=nums[0];e.mc=nums[1];e.sfd=nums[nums.length-2];e.sfc=nums[nums.length-1]; }
+      else if(nums.length>=2){ e.sfd=nums[0];e.sfc=nums[1]; }
+    }
+    data.push(e);
+  }
+  // net des soldes (présentation en solde net par sens)
+  data.forEach(e=>{ const n=e.sfd-e.sfc; if(n>=0){e.sfd=n;e.sfc=0;} else {e.sfd=0;e.sfc=-n;} });
+  return data;
+}
+function mkIndex(data){
+  const cache={};
+  return {
+    data,
+    SD:p=>{ const k='D'+p; if(cache[k]!==undefined) return cache[k];
+      let s=0; for(const e of data) if(e.cpte.startsWith(p)) s+=e.sfd; return cache[k]=s; },
+    SC:p=>{ const k='C'+p; if(cache[k]!==undefined) return cache[k];
+      let s=0; for(const e of data) if(e.cpte.startsWith(p)) s+=e.sfc; return cache[k]=s; },
+    totD:data.reduce((a,e)=>a+e.sfd,0),
+    totC:data.reduce((a,e)=>a+e.sfc,0),
+  };
+}
+async function loadBal(key,file){
+  const st=$('st3'); st.className='status'; st.textContent='Lecture de '+file.name+'…';
+  try{
+    const wb=await readWB(file);
+    const data=parseBalance(wb);
+    if(!data.length) throw new Error('Aucune ligne de compte détectée dans la première feuille.');
+    M[key]={file,data,idx:mkIndex(data)};
+    $('fname-'+(key==='balN'?'BN':'BN1')).textContent=file.name+' — '+data.length+' comptes';
+    $('drop-'+(key==='balN'?'BN':'BN1')).classList.add('has-file');
+    st.className='status ok'; st.textContent='Balance chargée ✓';
+    renderCtl3();
+    $('btn-s3').disabled=!M.balN;
+  }catch(err){ st.className='status err'; st.textContent='Erreur : '+err.message; }
+}
+function renderCtl3(){
+  let h='';
+  [['balN','Balance N'],['balN1','Balance N-1']].forEach(([k,l])=>{
+    if(!M[k]) return;
+    const i=M[k].idx, ecart=Math.round(i.totD-i.totC);
+    h+=`<div class="ctl ${ecart===0?'ok':'bad'}"><div class="t">${l} — équilibre</div><div class="v">${ecart===0?'Équilibrée ✓':'Écart : '+fmt(ecart)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">D : ${fmt(i.totD)} · C : ${fmt(i.totC)}</div></div>`;
+  });
+  $('ctl3').innerHTML=h;
+}
+
+/* ══ Étape 4 : montage ══ */
+function isSycebnl(){ return M.sys==='SYCEBNL_ASSOC'||M.sys==='SYCEBNL_PROJET'; }
+function sysLabel(){ return M.sys==='SYSCOHADA'?'SYSCOHADA révisé':(M.sys==='SYCEBNL_ASSOC'?'SYCEBNL — Associations & Fondations':'SYCEBNL — Projets de développement'); }
+
+function evalSycebnl(idx, idxPrev){
+  // CR d'abord (le passif référence le résultat)
+  // NB : certains totaux du modèle SYCEBNL précèdent leurs lignes de détail (AA, AH, AO…)
+  // → évaluation multi-passes jusqu'à stabilisation
+  function runCR(ix){
+    const V={},Vf=(c,r)=>V[c+r]||0;
+    for(let p=0;p<4;p++) SYCEBNL_CR.forEach(l=>{ V['H'+l.row]=l.val(ix.SD,ix.SC,Vf,null,null,{}); });
+    return V;
+  }
+  const crN=runCR(idx), crN1=idxPrev?runCR(idxPrev):null;
+  const resN=crN['H38']||0, resN1=crN1?(crN1['H38']||0):0;
+  function runActif(ix){
+    const V={},Vf=(c,r)=>V[c+r]||0;
+    for(let p=0;p<4;p++) SYCEBNL_ACTIF.forEach(l=>{
+      V['E'+l.row]=l.brut(ix.SD,ix.SC,Vf,null,null,{});
+      V['F'+l.row]=l.amort(ix.SD,ix.SC,Vf,null,null,{});
+      V['G'+l.row]=V['E'+l.row]-V['F'+l.row];
+    });
+    return V;
+  }
+  function runPassif(ix,res){
+    const V={},Vf=(c,r)=>V[c+r]||0;
+    for(let p=0;p<4;p++) SYCEBNL_PASSIF.forEach(l=>{ V['H'+l.row]=l.net(ix.SD,ix.SC,Vf,null,null,{resultatN:res}); });
+    return V;
+  }
+  const aN=runActif(idx), aN1=idxPrev?runActif(idxPrev):null;
+  const pN=runPassif(idx,resN), pN1=idxPrev?runPassif(idxPrev,resN1):null;
+  return {
+    actif:SYCEBNL_ACTIF.map(l=>({row:l.row,ref:l.ref,label:l.label,note:l.note,total:l.total,grand:/^TOTAL/.test(l.label),
+      brut:aN['E'+l.row],amort:aN['F'+l.row],net:aN['G'+l.row],netN1:aN1?aN1['G'+l.row]:null})),
+    passif:SYCEBNL_PASSIF.map(l=>({row:l.row,ref:l.ref,label:l.label,note:l.note,total:l.total,grand:/^TOTAL/.test(l.label),
+      net:pN['H'+l.row],netN1:pN1?pN1['H'+l.row]:null})),
+    cr:SYCEBNL_CR.map(l=>({row:l.row,ref:l.ref,label:l.label,s:l.signe,total:l.total,grand:l.total,
+      net:crN['H'+l.row],netN1:crN1?crN1['H'+l.row]:null})),
+    totActif:aN['G39'], totPassif:pN['H40'], resultat:resN, resultatN1:resN1, resPassif:pN['H17'],
+  };
+}
+function resolveTotals(V, table){
+  // résolution multi-passes des lignes de totaux (profondeur d'imbrication ≤ 4)
+  for(let pass=0;pass<4;pass++){
+    table.forEach(l=>{ if(l.kids) V[l.ref]=l.kids.reduce((a,k)=>a+(V[k]||0),0); });
+  }
+}
+function evalSysco(idx, idxPrev){
+  function runCR(ix){
+    const V={};
+    SYSCO_CR.forEach(l=>{ if(!l.kids) V[l.ref]=l.net(ix.SD,ix.SC); });
+    resolveTotals(V,SYSCO_CR);
+    return V;
+  }
+  const crN=runCR(idx), crN1=idxPrev?runCR(idxPrev):null;
+  const resN=crN['XI']||0, resN1=crN1?(crN1['XI']||0):0;
+  function runActif(ix){
+    const B={},A={};
+    SYSCO_ACTIF.forEach(l=>{ if(!l.kids){ B[l.ref]=l.brut(ix.SD,ix.SC); A[l.ref]=l.amort(ix.SD,ix.SC); } });
+    resolveTotals(B,SYSCO_ACTIF); resolveTotals(A,SYSCO_ACTIF);
+    return {B,A};
+  }
+  function runPassif(ix,res){
+    const V={};
+    SYSCO_PASSIF.forEach(l=>{ if(!l.kids) V[l.ref]=l.net(ix.SD,ix.SC,{resultatN:res}); });
+    resolveTotals(V,SYSCO_PASSIF);
+    return V;
+  }
+  const aN=runActif(idx), aN1=idxPrev?runActif(idxPrev):null;
+  const pN=runPassif(idx,resN), pN1=idxPrev?runPassif(idxPrev,resN1):null;
+  return {
+    sysco:true,
+    actif:SYSCO_ACTIF.map(l=>({ref:l.ref,label:l.label,total:l.total,grand:l.grand,
+      brut:aN.B[l.ref],amort:aN.A[l.ref],net:aN.B[l.ref]-aN.A[l.ref],
+      brutN1:aN1?aN1.B[l.ref]:null,amortN1:aN1?aN1.A[l.ref]:null,
+      netN1:aN1?(aN1.B[l.ref]-aN1.A[l.ref]):null})),
+    passif:SYSCO_PASSIF.map(l=>({ref:l.ref,label:l.label,total:l.total,grand:l.grand,
+      net:pN[l.ref],netN1:pN1?pN1[l.ref]:null})),
+    cr:SYSCO_CR.map(l=>({ref:l.ref,label:l.label,s:l.s,total:l.total,grand:l.grand,
+      net:crN[l.ref],netN1:crN1?crN1[l.ref]:null})),
+    totActif:aN.B['BZ']-aN.A['BZ'], totPassif:pN['DZ'], resultat:resN, resultatN1:resN1, resPassif:pN['CJ'],
+  };
+}
+function runMontage(){
+  saveFicheSilent();
+  const idx=M.balN.idx, idxPrev=M.balN1?M.balN1.idx:null;
+  M.out = isSycebnl()?evalSycebnl(idx,idxPrev):evalSysco(idx,idxPrev);
+  renderEtats();
+  go(4);
+}
+function saveFicheSilent(){ try{ FICHE_FIELDS.forEach(f=>{ if(!f.sec&&$('f-'+f.k)) M.fiche[f.k]=$('f-'+f.k).value.trim(); }); localStorage.setItem('montage-fiche',JSON.stringify(M.fiche)); }catch(e){} }
+
+function renderEtats(){
+  const o=M.out;
+  $('titre4').textContent='États financiers — '+sysLabel()+(M.fiche.denom?' · '+M.fiche.denom:'');
+  // contrôles
+  const eqBal=Math.round(M.balN.idx.totD-M.balN.idx.totC);
+  const eqBilan=Math.round(o.totActif-o.totPassif);
+  $('controls').innerHTML=
+    `<div class="ctl ${eqBal===0?'ok':'bad'}"><div class="t">Équilibre balance N</div><div class="v">${eqBal===0?'OK ✓':'Écart '+fmt(eqBal)}</div></div>`+
+    `<div class="ctl ${eqBilan===0?'ok':'bad'}"><div class="t">Actif = Passif</div><div class="v">${eqBilan===0?'Équilibré ✓':'Écart '+fmt(eqBilan)}</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">Actif : ${fmt(o.totActif)} · Passif : ${fmt(o.totPassif)}</div></div>`+
+    `<div class="ctl"><div class="t">Résultat de l'exercice</div><div class="v" style="color:${o.resultat>=0?'var(--ok)':'var(--warn)'}">${fmt(o.resultat)}</div></div>`;
+  const hasN1=!!M.balN1;
+  const rowCls=l=>l.grand?'grand':(l.total?'tot':'');
+  $('sub-actif').innerHTML=`<table class="ef"><tr><th>Réf</th><th>Actif</th><th style="text-align:right">Brut</th><th style="text-align:right">Amort./Dépréc.</th><th style="text-align:right">Net N</th><th style="text-align:right">Net N-1</th></tr>`+
+    o.actif.map(l=>`<tr class="${rowCls(l)}"><td class="ref">${l.ref}</td><td>${l.label}</td><td class="num">${fmt(l.brut)}</td><td class="num">${fmt(l.amort)}</td><td class="num">${fmt(l.net)}</td><td class="num">${hasN1?fmt(l.netN1):''}</td></tr>`).join('')+'</table>';
+  $('sub-passif').innerHTML=`<table class="ef"><tr><th>Réf</th><th>Passif</th><th style="text-align:right">Net N</th><th style="text-align:right">Net N-1</th></tr>`+
+    o.passif.map(l=>`<tr class="${rowCls(l)}"><td class="ref">${l.ref}</td><td>${l.label}</td><td class="num">${fmt(l.net)}</td><td class="num">${hasN1?fmt(l.netN1):''}</td></tr>`).join('')+'</table>';
+  $('sub-cr').innerHTML=`<table class="ef"><tr><th>Réf</th><th>Libellés</th><th>Signe</th><th style="text-align:right">Exercice N</th><th style="text-align:right">Exercice N-1</th></tr>`+
+    o.cr.map(l=>`<tr class="${rowCls(l)}"><td class="ref">${l.ref}</td><td>${l.label}</td><td>${l.s||''}</td><td class="num">${fmt(l.net)}</td><td class="num">${hasN1?fmt(l.netN1):''}</td></tr>`).join('')+'</table>';
+  renderTFTPreview();
+}
+const DGID_TFT_LABELS={ZA:"Trésorerie nette au 1er janvier (N-1)",FA:"Capacité d'Autofinancement Globale (CAFG)",FB:"(-) Variation des stocks",FC:"(-) Variation des créances",FD:"(-) Variation actif circulant",FE:"(+) Variation du passif circulant",ZB:"Flux de trésorerie des activités opérationnelles",FF:"(-) Décaissements / immobilisations incorporelles",FG:"(-) Décaissements / immobilisations corporelles",FH:"(-) Décaissements / immobilisations financières",FI:"(+) Encaissements / cessions d'immobilisations",FJ:"(+) Encaissements / cessions financières",ZC:"Flux de trésorerie des activités d'investissement",FK:"(+) Augmentation de capital",FL:"(+) Subventions d'investissement",FM:"(-) Prélèvements sur capital",FN:"(-) Dividendes versés",ZD:"Flux de trésorerie / capitaux propres",FO:"(+) Emprunts nouveaux",FP:"(+) Autres dettes financières",FQ:"(-) Remboursements d'emprunts",ZE:"Flux de trésorerie / capitaux étrangers",ZF:"Flux de trésorerie des activités de financement",ZG:"Variation de la trésorerie nette de la période",ZH:"Trésorerie nette au 31 décembre (N)"};
+const DGID_TFT_ORDER=["ZA","FA","FB","FC","FD","FE","ZB","FF","FG","FH","FI","FJ","ZC","FK","FL","FM","FN","ZD","FO","FP","FQ","ZE","ZF","ZG","ZH"];
+function renderTFTPreview(){
+  const el=$('sub-tft'); if(!el) return;
+  if(!M.out || !M.out.sysco){
+    el.innerHTML='<div class="note info">Le tableau des flux de trésorerie (méthode indirecte) est calculé pour le référentiel <strong>SYSCOHADA</strong>. Sélectionnez ce système, ou consultez le TFT après export.</div>';
+    return;
+  }
+  if(!M.balN1){
+    el.innerHTML='<div class="note warn">Le tableau des flux nécessite la <strong>balance N-1</strong> pour être significatif (variations de bilan). Importez-la à l\'étape 3.</div>';
+  }
+  const T=computeTFT();
+  const totals=new Set(["ZA","ZB","ZC","ZD","ZE","ZF","ZG","ZH"]);
+  let rows='';
+  DGID_TFT_ORDER.forEach(ref=>{
+    const v=T[ref]; if(v===null||v===undefined) return;
+    const cls=totals.has(ref)?'tot':'';
+    rows+=`<tr class="${cls}"><td class="ref">${ref}</td><td>${DGID_TFT_LABELS[ref]||ref}</td><td class="num">${fmt(Math.round(v))}</td></tr>`;
+  });
+  let ctrl='';
+  if(T.ecart!==null && T.ecart!==undefined){
+    const ok=Math.abs(T.ecart)<1;
+    ctrl=`<div class="note ${ok?'info':'warn'}" style="margin-top:10px;">Contrôle : trésorerie finale calculée vs bilan — écart de <strong>${fmt(T.ecart)}</strong>. ${ok?'✓ cohérent.':'Les lignes d\'investissement/financement (FF–FN) sont estimées ; ajustez-les si besoin.'}</div>`;
+  }
+  el.innerHTML=`<table class="ef"><tr><th>Réf</th><th>Libellés</th><th style="text-align:right">Montant (N)</th></tr>${rows}</table>${ctrl}`;
+}
+
+/* ══ EXPORT 1 : injection dans le modèle Excel officiel ══ */
+const NSX='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+function colLetter(n){ let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=(n-m-1)/26; } return s; }
+function colNum(s){ let n=0; for(const ch of s) n=n*26+(ch.charCodeAt(0)-64); return n; }
+function xlDate(iso){ if(!iso) return null; const d=new Date(iso+'T00:00:00Z'); if(isNaN(d)) return null; return Math.round((d-Date.UTC(1899,11,30))/86400000); }
+function cellEl(doc, ref, val, type, style){
+  const c=doc.createElementNS(NSX,'c'); c.setAttribute('r',ref);
+  if(style) c.setAttribute('s',style);
+  if(type==='s'){ c.setAttribute('t','inlineStr'); const is=doc.createElementNS(NSX,'is'); const t=doc.createElementNS(NSX,'t');
+    t.setAttribute('xml:space','preserve'); t.textContent=String(val); is.appendChild(t); c.appendChild(is); }
+  else { const v=doc.createElementNS(NSX,'v'); v.textContent=String(val); c.appendChild(v); }
+  return c;
+}
+function setCell(doc, sheetData, rowMap, ref, val, type){
+  if(val===null||val===undefined||val==='') return;
+  const m=/^([A-Z]+)(\d+)$/.exec(ref); const col=m[1], rn=+m[2], cn=colNum(col);
+  let row=rowMap[rn];
+  if(!row){
+    row=doc.createElementNS(NSX,'row'); row.setAttribute('r',rn);
+    // insertion triée
+    let after=null;
+    for(const r of sheetData.children){ if(+r.getAttribute('r')>rn){ after=r; break; } }
+    sheetData.insertBefore(row,after); rowMap[rn]=row;
+  }
+  // remplace / insère la cellule à la bonne position, en conservant le style existant
+  let style=null, before=null;
+  for(const c of Array.from(row.children)){
+    const cm=/^([A-Z]+)\d+$/.exec(c.getAttribute('r')||''); if(!cm) continue;
+    const ccn=colNum(cm[1]);
+    if(ccn===cn){ style=c.getAttribute('s'); row.removeChild(c); }
+    else if(ccn>cn && !before) before=c;
+  }
+  row.insertBefore(cellEl(doc,ref,val,type,style),before);
+}
+async function getSheetPath(zip, wanted){
+  const wbXml=await zip.file('xl/workbook.xml').async('string');
+  const rels=await zip.file('xl/_rels/workbook.xml.rels').async('string');
+  const dp=new DOMParser();
+  const wbd=dp.parseFromString(wbXml,'application/xml');
+  const rd=dp.parseFromString(rels,'application/xml');
+  const relMap={};
+  rd.querySelectorAll('Relationship').forEach(r=>relMap[r.getAttribute('Id')]=r.getAttribute('Target'));
+  const clean=s=>String(s).trim().toUpperCase();
+  let found=null;
+  wbd.querySelectorAll('sheet').forEach(s=>{
+    if(clean(s.getAttribute('name'))===clean(wanted)){
+      let t=relMap[s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')||s.getAttribute('r:id')];
+      if(t){ if(!t.startsWith('xl/')) t='xl/'+t.replace(/^\//,'').replace(/^\.\.\//,''); found=t; }
+    }
+  });
+  return found;
+}
+async function injectBalance(zip, sheetPath, data, startRow){
+  const xml=await zip.file(sheetPath).async('string');
+  const doc=new DOMParser().parseFromString(xml,'application/xml');
+  const sheetData=doc.getElementsByTagNameNS(NSX,'sheetData')[0];
+  const rowMap={};
+  Array.from(sheetData.children).forEach(r=>rowMap[+r.getAttribute('r')]=r);
+  // purge des anciennes données colonnes I..P (lignes >= startRow)
+  for(const rn in rowMap){
+    if(+rn<startRow) continue;
+    const row=rowMap[rn];
+    Array.from(row.children).forEach(c=>{
+      const cm=/^([A-Z]+)\d+$/.exec(c.getAttribute('r')||''); if(!cm) return;
+      const cn=colNum(cm[1]);
+      if(cn>=9&&cn<=16) row.removeChild(c); // I..P
+    });
+  }
+  data.forEach((e,i)=>{
+    const rn=startRow+i;
+    setCell(doc,sheetData,rowMap,'I'+rn,e.cpte,'s');
+    setCell(doc,sheetData,rowMap,'J'+rn,e.lib||'','s');
+    if(e.sid) setCell(doc,sheetData,rowMap,'K'+rn,e.sid,'n');
+    if(e.sic) setCell(doc,sheetData,rowMap,'L'+rn,e.sic,'n');
+    if(e.md)  setCell(doc,sheetData,rowMap,'M'+rn,e.md,'n');
+    if(e.mc)  setCell(doc,sheetData,rowMap,'N'+rn,e.mc,'n');
+    if(e.sfd) setCell(doc,sheetData,rowMap,'O'+rn,e.sfd,'n');
+    if(e.sfc) setCell(doc,sheetData,rowMap,'P'+rn,e.sfc,'n');
+  });
+  zip.file(sheetPath, new XMLSerializer().serializeToString(doc));
+}
+async function injectInfos(zip, sheetPath, F){
+  const xml=await zip.file(sheetPath).async('string');
+  const doc=new DOMParser().parseFromString(xml,'application/xml');
+  const sheetData=doc.getElementsByTagNameNS(NSX,'sheetData')[0];
+  const rowMap={};
+  Array.from(sheetData.children).forEach(r=>rowMap[+r.getAttribute('r')]=r);
+  const S=(ref,v)=>setCell(doc,sheetData,rowMap,ref,v,'s');
+  const N=(ref,v)=>setCell(doc,sheetData,rowMap,ref,v,'n');
+  const D=(ref,v)=>{ const s=xlDate(v); if(s) setCell(doc,sheetData,rowMap,ref,s,'n'); };
+  D('P9',F.exDu); D('U9',F.exAu); D('J11',F.arrete); D('J13',F.prevClos);
+  if(F.dureePrev) N('W13',+F.dureePrev);
+  S('E15',F.greffe); S('F15',F.rccm); D('I15',F.creation); S('M15',F.repertoire);
+  S('E18',F.css); S('H18',F.codeImp); S('S18',F.codeAct);
+  S('E21',F.denom); S('L21',F.sigle);
+  S('E24',F.tel); S('G24',F.email); S('L24',F.bp); S('N24',F.ville);
+  S('E28',F.adresse); S('E31',F.activite);
+  S('E34',F.dirNom); S('G34',F.dirAdr); S('K34',F.dirTel); S('M34',F.dirEmail); S('U34',F.dirQualite);
+  S('E37',F.cptNom); S('G37',F.cptAdr); S('M37',F.cptTel); S('Q37',F.cptEmail);
+  S('E45',F.expert);
+  S('E53',F.centreImpot); S('I53',F.commune); S('P53',F.ninea);
+  S('G56',F.formeJur); S('I56',F.regimeFiscal); S('J56',F.pays); S('P56',F.ntd);
+  S('E65',F.sigNom); S('E68',F.sigQualite);
+  S('L62',F.bq1); S('S62',F.bq1num); S('L63',F.bq2); S('S63',F.bq2num); S('L64',F.bq3); S('S64',F.bq3num);
+  zip.file(sheetPath, new XMLSerializer().serializeToString(doc));
+}
+async function exportLiasse(){
+  const st=$('st-tpl'); st.className='status'; st.textContent='Génération en cours…';
+  try{
+    if(!M.out) throw new Error('Montez d\'abord les états financiers (étape 3).');
+    let buf;
+    if(M.tpl){ buf=await M.tpl.arrayBuffer(); }
+    else {
+      // masque intégré selon le système (SYCEBNL par défaut)
+      try{
+        const resp=await fetch('modele_sycebnl.xlsx');
+        if(!resp.ok) throw 0;
+        buf=await resp.arrayBuffer();
+      }catch(e){ throw new Error('Masque intégré introuvable. Déposez un masque de liasse (.xlsx), ou utilisez l\'export DGID.'); }
+    }
+    let zip;
+    try{ zip=await JSZip.loadAsync(buf); }
+    catch(e){ throw new Error('Impossible d\'ouvrir ce fichier. S\'il est protégé par mot de passe (chiffré), enregistrez-en une copie SANS protection dans Excel puis réessayez.'); }
+    const pBN=await getSheetPath(zip,'Balance N');
+    if(!pBN) throw new Error('Onglet « Balance N » introuvable dans ce masque.');
+    await injectBalance(zip,pBN,M.balN.data,3);
+    if(M.balN1){
+      const pBN1=await getSheetPath(zip,'Balance N-1');
+      if(pBN1) await injectBalance(zip,pBN1,M.balN1.data,3);
+    }
+    const pIG=await getSheetPath(zip,'INFORMATIONS GENERALES');
+    if(pIG) await injectInfos(zip,pIG,M.fiche);
+    // recalcul complet à l'ouverture
+    let wbXml=await zip.file('xl/workbook.xml').async('string');
+    if(/<calcPr\b/.test(wbXml)){
+      wbXml=wbXml.replace(/<calcPr\b([^>]*?)\/>/,(m,a)=>/fullCalcOnLoad/.test(a)?m:`<calcPr${a} fullCalcOnLoad="1"/>`);
+    } else {
+      wbXml=wbXml.replace('</workbook>','<calcPr fullCalcOnLoad="1"/></workbook>');
+    }
+    zip.file('xl/workbook.xml',wbXml);
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+    const name='LIASSE_'+(M.sys)+'_'+(M.fiche.denom||'ENTITE').replace(/[^A-Za-z0-9]+/g,'_')+'.xlsx';
+    dl(blob,name);
+    st.className='status ok'; st.textContent='Liasse générée ✓ — ouvrez-la dans Excel : tous les états se recalculent automatiquement.';
+  }catch(err){ st.className='status err'; st.textContent=err.message; }
+}
+function dl(blob,name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+}
+
+/* ══ EXPORT 2 : PDF ══ */
+function exportPDF(){
+  if(!M.out) return;
+  const F=M.fiche, o=M.out, hasN1=!!M.balN1;
+  const head=t=>`<div class="pr-head"><h2>${t}</h2><div class="meta">
+    <strong>${F.denom||''}</strong>${F.sigle?' ('+F.sigle+')':''} — ${sysLabel()}<br>
+    ${F.adresse||''} ${F.ville?'· '+F.ville:''} · NINEA/IFU : ${F.ninea||'—'} · Exercice clos le ${F.exAu||'—'}
+  </div></div>`;
+  const rowCls=l=>l.grand?'grand':(l.total?'tot':'');
+  let h='';
+  h+=`<div class="pr-page">${head('BILAN — ACTIF')}<table class="pr"><tr><th>Réf</th><th>Actif</th><th>Brut</th><th>Amort./Dépréc.</th><th>Net N</th><th>Net N-1</th></tr>`+
+    o.actif.map(l=>`<tr class="${rowCls(l)}"><td>${l.ref}</td><td>${l.label}</td><td class="num">${fmt(l.brut)}</td><td class="num">${fmt(l.amort)}</td><td class="num">${fmt(l.net)}</td><td class="num">${hasN1?fmt(l.netN1):''}</td></tr>`).join('')+'</table></div>';
+  h+=`<div class="pr-page">${head('BILAN — PASSIF')}<table class="pr"><tr><th>Réf</th><th>Passif</th><th>Net N</th><th>Net N-1</th></tr>`+
+    o.passif.map(l=>`<tr class="${rowCls(l)}"><td>${l.ref}</td><td>${l.label}</td><td class="num">${fmt(l.net)}</td><td class="num">${hasN1?fmt(l.netN1):''}</td></tr>`).join('')+'</table></div>';
+  h+=`<div class="pr-page">${head('COMPTE DE RÉSULTAT')}<table class="pr"><tr><th>Réf</th><th>Libellés</th><th>Signe</th><th>Exercice N</th><th>Exercice N-1</th></tr>`+
+    o.cr.map(l=>`<tr class="${rowCls(l)}"><td>${l.ref}</td><td>${l.label}</td><td>${l.s||''}</td><td class="num">${fmt(l.net)}</td><td class="num">${hasN1?fmt(l.netN1):''}</td></tr>`).join('')+'</table></div>';
+  if(o.sysco){
+    const T=computeTFT(); const totals=new Set(["ZA","ZB","ZC","ZD","ZE","ZF","ZG","ZH"]);
+    h+=`<div class="pr-page">${head('TABLEAU DES FLUX DE TRÉSORERIE')}<table class="pr"><tr><th>Réf</th><th>Libellés</th><th>Montant N</th></tr>`+
+      DGID_TFT_ORDER.filter(r=>T[r]!==null&&T[r]!==undefined).map(r=>`<tr class="${totals.has(r)?'tot':''}"><td>${r}</td><td>${DGID_TFT_LABELS[r]||r}</td><td class="num">${fmt(Math.round(T[r]))}</td></tr>`).join('')+'</table></div>';
+  }
+  $('print-zone').innerHTML=h;
+  window.print();
+}
+
+/* ══ EXPORT 3 : DGID — injection dans le modèle officiel ══ */
+// Cartographie du formulaire DGID (relevée sur « modele_etats_financiers_DGID (Nouveau) »)
+const DGID_ACTIF_ROWS={AD:9,AE:10,AF:11,AG:12,AH:13,AI:14,AJ:15,AK:16,AL:17,AM:18,AN:19,AP:20,AQ:21,AR:22,AS:23,AZ:24,BA:25,BB:26,BG:27,BH:28,BI:29,BJ:30,BK:31,BQ:32,BR:33,BS:34,BT:35,BU:36,BZ:37};
+const DGID_PASSIF_ROWS={CA:9,CB:10,CD:11,CE:12,CF:13,CG:14,CH:15,CJ:16,CL:17,CM:18,CP:19,DA:20,DB:21,DC:22,DD:23,DF:24,DH:25,DI:26,DJ:27,DK:28,DM:29,DN:30,DP:31,DQ:33,DR:34,DT:35,DV:36,DZ:37};
+const DGID_CR_ROWS={TA:8,RA:9,RB:10,XA:11,TB:12,TC:13,TD:14,XB:15,TE:16,TF:17,TG:18,TH:19,TI:20,RC:21,RD:22,RE:23,RF:24,RG:25,RH:26,RI:27,RJ:28,XC:29,RK:30,XD:31,TJ:32,RL:33,XE:34,TK:35,TL:36,TM:37,RM:38,RN:39,XF:40,XG:41,TN:42,TO:43,RO:44,RP:45,XH:46,RQ:47,RS:48,XI:49};
+const DGID_TFT_ROWS={ZA:8,FA:10,FB:11,FC:12,FD:13,FE:14,ZB:16,FF:18,FG:19,FH:20,FI:21,FJ:22,ZC:23,FK:25,FL:26,FM:27,FN:28,ZD:29,FO:31,FP:32,FQ:33,ZE:34,ZF:35,ZG:36,ZH:37};
+function getVal(list,ref,field){ const l=list.find(x=>x.ref===ref); return l?(l[field]||0):0; }
+function computeTFT(){
+  // TFT indirect — nécessite balance N-1 pour être significatif
+  const o=M.out, hasN1=!!M.balN1;
+  const A=r=>o.actif.find(x=>x.ref===r)||{};
+  const P=r=>o.passif.find(x=>x.ref===r)||{};
+  const SDn=M.balN.idx.SD, SCn=M.balN.idx.SC;
+  const R={};
+  const net=(l)=>l.net||0, net1=(l)=>l.netN1||0, brut=(l)=>l.brut||0, brut1=(l)=>l.brutN1||0;
+  // Trésorerie nette
+  const trezoN =(net(A('BT'))||0)-(net(P('DT'))||0);
+  const trezoN1=hasN1?((net1(A('BT'))||0)-(net1(P('DT'))||0)):0;
+  R.ZA=hasN1?trezoN1:null;
+  // CAFG = résultat + dotations (68,69,85) − reprises (79,86) + VNC cessions (81) − produits cessions (82)
+  R.FA=o.resultat+SDn('68')+SDn('69')+SDn('85')-SCn('79')-SCn('86')+SDn('81')-SCn('82');
+  if(hasN1){
+    R.FB=-(net(A('BA'))-net1(A('BA')));
+    R.FC=-(net(A('BB'))-net1(A('BB')));
+    R.FD=-((net(A('BG'))||((net(A('BH'))+net(A('BI'))+net(A('BJ')))))-(net1(A('BG'))||((net1(A('BH'))+net1(A('BI'))+net1(A('BJ'))))));
+    R.FE=+(net(P('DP'))-net1(P('DP')));
+  } else { R.FB=R.FC=R.FD=R.FE=null; }
+  R.ZB=R.FA+(R.FB||0)+(R.FC||0)+(R.FD||0)+(R.FE||0);
+  if(hasN1){
+    const dIncorp=brut(A('AD'))-brut1(A('AD'));
+    const dCorp=(brut(A('AI'))+brut(A('AP')))-(brut1(A('AI'))+brut1(A('AP')));
+    const dFin=brut(A('AQ'))-brut1(A('AQ'));
+    R.FF=dIncorp>0?-dIncorp:0; R.FG=dCorp>0?-dCorp:0; R.FH=dFin>0?-dFin:0;
+    R.FI=SCn('82'); R.FJ=0;
+    R.ZC=R.FF+R.FG+R.FH+R.FI+R.FJ;
+    const dCap=(net(P('CA'))+net(P('CB'))+net(P('CD')))-(net1(P('CA'))+net1(P('CB'))+net1(P('CD')));
+    R.FK=dCap>0?dCap:0; R.FM=dCap<0?dCap:0;
+    const dSubv=net(P('CL'))-net1(P('CL')); R.FL=dSubv>0?dSubv:0;
+    // dividendes ≈ résultat N-1 non affecté aux réserves / RAN
+    const dRes=(net(P('CF'))+net(P('CG'))+net(P('CH')))-(net1(P('CF'))+net1(P('CG'))+net1(P('CH')));
+    const div=(o.resultatN1||0)-dRes; R.FN=div>0?-div:0;
+    R.ZD=R.FK+R.FL+R.FM+R.FN;
+    const dEmp=(net(P('DA'))+net(P('DB')))-(net1(P('DA'))+net1(P('DB')));
+    R.FO=dEmp>0?dEmp:0; R.FP=0; R.FQ=dEmp<0?dEmp:0;
+    R.ZE=R.FO+R.FP+R.FQ;
+    R.ZF=R.ZD+R.ZE;
+    R.ZG=R.ZB+R.ZC+R.ZF;
+    R.ZH=(R.ZA||0)+R.ZG;
+    R.controle=trezoN; R.ecart=Math.round(R.ZH-trezoN);
+  } else { R.ZC=R.ZD=R.ZE=R.ZF=R.ZG=R.ZH=null; R.controle=trezoN; R.ecart=null; }
+  return R;
+}
+async function injectDGID(zip){
+  const F=M.fiche, o=M.out;
+  const setSheet=async(name,fn)=>{
+    const p=await getSheetPath(zip,name); if(!p) return false;
+    const xml=await zip.file(p).async('string');
+    const doc=new DOMParser().parseFromString(xml,'application/xml');
+    const sheetData=doc.getElementsByTagNameNS(NSX,'sheetData')[0];
+    const rowMap={}; Array.from(sheetData.children).forEach(r=>rowMap[+r.getAttribute('r')]=r);
+    fn({
+      S:(ref,v)=>{ if(v) setCell(doc,sheetData,rowMap,ref,v,'s'); },
+      N:(ref,v)=>{ if(v!==null&&v!==undefined&&v!==0) setCell(doc,sheetData,rowMap,ref,Math.round(v),'n'); },
+      N0:(ref,v)=>{ if(v!==null&&v!==undefined) setCell(doc,sheetData,rowMap,ref,Math.round(v),'n'); },
+      D:(ref,v)=>{ const s=xlDate(v); if(s) setCell(doc,sheetData,rowMap,ref,s,'n'); },
+    });
+    zip.file(p,new XMLSerializer().serializeToString(doc));
+    return true;
+  };
+  const dureeN=(()=>{ if(F.exDu&&F.exAu){ const a=new Date(F.exDu),b=new Date(F.exAu); if(!isNaN(a)&&!isNaN(b)) return Math.max(1,Math.round((b-a)/2592000000)); } return 12; })();
+  // — Page de garde
+  await setSheet('Page de garde',({S,D})=>{
+    S('B17','CENTRE DE DEPOT : '+(F.centreImpot||''));
+    D('M27',F.exAu);
+    S('L35',F.denom); S('H41',F.sigle); S('J46',[F.adresse,F.bp?('BP '+F.bp):'',F.ville].filter(Boolean).join(' — '));
+    S('N51',F.ninea);
+  });
+  // — Fiche R1
+  await setSheet('Fiche de renseignement R1',({S,D,N0})=>{
+    N0('AH1',dureeN); N0('AH10',dureeN);
+    D('Y13',F.exDu); D('AH13',F.exAu);
+    D('Q20',F.prevClos);
+    S('F24',F.greffe); S('I24',F.rccm); S('W24',F.repertoire);
+    S('G28',F.css); S('S28',F.codeImp);
+    S('G36',F.tel); S('Q36',F.email); S('Y36',F.codeAct); S('AA36',F.bp); S('AE36',F.ville);
+    S('D40',F.adresse);
+    S('D44',F.activite);
+    S('D48',[F.dirNom,F.dirAdr,F.dirQualite,F.dirTel,F.dirEmail].filter(Boolean).join(' — '));
+    S('D52',[F.cptNom,F.cptAdr,F.cptTel,F.cptEmail].filter(Boolean).join(' — '));
+    S('D56',F.expert);
+    S('D69',F.sigNom); S('D72',F.sigQualite); D('D75',F.sigDate);
+    S('T71',F.bq1); S('AD71',F.bq1num);
+    S('T72',F.bq2); S('AD72',F.bq2num);
+    S('T73',F.bq3); S('AD73',F.bq3num);
+  });
+  // — Correspondance des lignes selon le référentiel choisi
+  const hasN1=!!M.balN1;
+  let actifByRef={}, passifByRef={}, crByRef={};
+  if(o.sysco){
+    o.actif.forEach(l=>actifByRef[l.ref]=l);
+    o.passif.forEach(l=>passifByRef[l.ref]=l);
+    o.cr.forEach(l=>crByRef[l.ref]=l);
+  } else {
+    // Entité SYCEBNL → report des LIGNES DE DÉTAIL sur les rubriques SYSCOHADA du formulaire DGID
+    // (mapping par n° de ligne du modèle SYCEBNL ; les totaux DGID sont recomposés ensuite)
+    const A_ROW_MAP={11:'AH',12:'AM',13:'AH',16:'AP',18:'AJ',19:'AK',20:'AL',21:'AM',22:'AN',23:'AP',25:'AR',26:'AS',28:'BA',29:'BB',30:'BH',31:'BI',32:'BJ',34:'BQ',35:'BR',36:'BS',38:'BU'};
+    // NB : lignes 14 (AE) et 15 (AF) SYCEBNL = sous-détails de la ligne 13 (classe 21 entière) → non reportées pour éviter le double compte
+    o.actif.forEach(l=>{
+      const tgt=A_ROW_MAP[l.row]; if(!tgt) return;
+      if(!actifByRef[tgt]) actifByRef[tgt]={brut:0,amort:0,net:0,netN1:0};
+      ['brut','amort','net','netN1'].forEach(f=>actifByRef[tgt][f]=(actifByRef[tgt][f]||0)+(l[f]||0));
+    });
+    // totaux actif DGID
+    const sumA=(refs,f)=>refs.reduce((a,r)=>a+((actifByRef[r]||{})[f]||0),0);
+    [['AD',['AH']],['AI',['AJ','AK','AL','AM','AN']],['AQ',['AR','AS']],['BG',['BH','BI','BJ']]].forEach(([t,ks])=>{
+      actifByRef[t]={brut:sumA(ks,'brut'),amort:sumA(ks,'amort'),net:sumA(ks,'net'),netN1:sumA(ks,'netN1')};
+    });
+    actifByRef['AZ']={brut:sumA(['AD','AI','AP','AQ'],'brut'),amort:sumA(['AD','AI','AP','AQ'],'amort'),net:sumA(['AD','AI','AP','AQ'],'net'),netN1:sumA(['AD','AI','AP','AQ'],'netN1')};
+    actifByRef['BK']={brut:sumA(['BA','BB','BG'],'brut'),amort:sumA(['BA','BB','BG'],'amort'),net:sumA(['BA','BB','BG'],'net'),netN1:sumA(['BA','BB','BG'],'netN1')};
+    actifByRef['BT']={brut:sumA(['BQ','BR','BS'],'brut'),amort:sumA(['BQ','BR','BS'],'amort'),net:sumA(['BQ','BR','BS'],'net'),netN1:sumA(['BQ','BR','BS'],'netN1')};
+    actifByRef['BZ']={brut:sumA(['AZ','BK','BT','BU'],'brut'),amort:sumA(['AZ','BK','BT','BU'],'amort'),net:sumA(['AZ','BK','BT','BU'],'net'),netN1:sumA(['AZ','BK','BT','BU'],'netN1')};
+    // passif : lignes de détail SYCEBNL (n° de ligne) → rubriques DGID
+    const P_ROW_MAP={10:'CA',11:'CA',12:'CD',13:'CA',14:'CE',15:'CF',16:'CH',17:'CJ',18:'CL',19:'CM',21:'CM',22:'CM',25:'DA',26:'DB',27:'DC',30:'DH',31:'DI',32:'DJ',33:'DM',34:'DN',36:'DQ',37:'DR',39:'DV'};
+    o.passif.forEach(l=>{
+      const tgt=P_ROW_MAP[l.row]; if(!tgt) return;
+      if(!passifByRef[tgt]) passifByRef[tgt]={net:0,netN1:0};
+      passifByRef[tgt].net=(passifByRef[tgt].net||0)+(l.net||0);
+      passifByRef[tgt].netN1=(passifByRef[tgt].netN1||0)+(l.netN1||0);
+    });
+    const sumP=(refs,f)=>refs.reduce((a,r)=>a+((passifByRef[r]||{})[f]||0),0);
+    passifByRef['CP']={net:sumP(['CA','CB','CD','CE','CF','CG','CH','CJ','CL','CM'],'net'),netN1:sumP(['CA','CB','CD','CE','CF','CG','CH','CJ','CL','CM'],'netN1')};
+    passifByRef['DD']={net:sumP(['DA','DB','DC'],'net'),netN1:sumP(['DA','DB','DC'],'netN1')};
+    passifByRef['DF']={net:sumP(['CP','DD'],'net'),netN1:sumP(['CP','DD'],'netN1')};
+    passifByRef['DP']={net:sumP(['DH','DI','DJ','DK','DM','DN'],'net'),netN1:sumP(['DH','DI','DJ','DK','DM','DN'],'netN1')};
+    passifByRef['DT']={net:sumP(['DQ','DR'],'net'),netN1:sumP(['DQ','DR'],'netN1')};
+    passifByRef['DZ']={net:sumP(['DF','DP','DT','DV'],'net'),netN1:sumP(['DF','DP','DT','DV'],'netN1')};
+    // compte de résultat : produits SYCEBNL (RA-RH) → T… DGID ; charges SYCEBNL (TA-TL) → R… DGID (en négatif)
+    const C_ROW_MAP={12:'TH',13:'TH',14:'TH',15:'TA',16:'TC',17:'TG',18:'TH',19:'TJ',21:'RE',22:'RD',23:'RC',24:'RE',25:'RF',26:'RG',27:'RH',28:'RI',29:'RJ',30:'RK',31:'RM',32:'RL',35:'TO',36:'RP'};
+    o.cr.forEach(l=>{
+      const tgt=C_ROW_MAP[l.row]; if(!tgt) return;
+      if(!crByRef[tgt]) crByRef[tgt]={net:0,netN1:0};
+      const isCharge=/^R/.test(tgt);
+      crByRef[tgt].net=(crByRef[tgt].net||0)+(isCharge?-(l.net||0):(l.net||0));
+      crByRef[tgt].netN1=(crByRef[tgt].netN1||0)+(isCharge?-(l.netN1||0):(l.netN1||0));
+    });
+    // recomposer les soldes intermédiaires DGID
+    const g=r=>crByRef[r]?{n:crByRef[r].net||0,p:crByRef[r].netN1||0}:{n:0,p:0};
+    const setT=(r,n,p)=>{ crByRef[r]={net:n,netN1:p}; };
+    const sum=(refs,f)=>refs.reduce((a,x)=>a+g(x)[f],0);
+    setT('XA',sum(['TA','RA','RB'],'n'),sum(['TA','RA','RB'],'p'));
+    setT('XB',sum(['TA','TB','TC','TD'],'n'),sum(['TA','TB','TC','TD'],'p'));
+    setT('XC',sum(['XB','RA','RB','TE','TF','TG','TH','TI','RC','RD','RE','RF','RG','RH','RI','RJ'],'n'),sum(['XB','RA','RB','TE','TF','TG','TH','TI','RC','RD','RE','RF','RG','RH','RI','RJ'],'p'));
+    setT('XD',sum(['XC','RK'],'n'),sum(['XC','RK'],'p'));
+    setT('XE',sum(['XD','TJ','RL'],'n'),sum(['XD','TJ','RL'],'p'));
+    setT('XF',sum(['TK','TL','TM','RM','RN'],'n'),sum(['TK','TL','TM','RM','RN'],'p'));
+    setT('XG',sum(['XE','XF'],'n'),sum(['XE','XF'],'p'));
+    setT('XH',sum(['TN','TO','RO','RP'],'n'),sum(['TN','TO','RO','RP'],'p'));
+    setT('XI',sum(['XG','XH','RQ','RS'],'n'),sum(['XG','XH','RQ','RS'],'p'));
+  }
+  // — Bilan paysage
+  await setSheet('BILAN PAYSAGE',({N})=>{
+    Object.entries(DGID_ACTIF_ROWS).forEach(([ref,row])=>{
+      const l=actifByRef[ref]; if(!l) return;
+      N('D'+row,l.brut); N('E'+row,l.amort); N('F'+row,l.net);
+      if(hasN1) N('G'+row,l.netN1);
+    });
+    Object.entries(DGID_PASSIF_ROWS).forEach(([ref,row])=>{
+      const l=passifByRef[ref]; if(!l) return;
+      N('K'+row,l.net); if(hasN1) N('L'+row,l.netN1);
+    });
+  });
+  // — Compte de résultat
+  await setSheet('COMPTE DE RESULTAT',({N})=>{
+    Object.entries(DGID_CR_ROWS).forEach(([ref,row])=>{
+      const l=crByRef[ref]; if(!l) return;
+      N('E'+row,l.net); if(hasN1) N('F'+row,l.netN1);
+    });
+  });
+  // — Flux de trésorerie (SYSCOHADA uniquement — estimation indirecte à vérifier)
+  let tftEcart=null;
+  if(o.sysco){
+    const T=computeTFT(); tftEcart=T.ecart;
+    await setSheet('FLUX DE TRESORERIE',({N})=>{
+      Object.entries(DGID_TFT_ROWS).forEach(([ref,row])=>{
+        const v=T[ref]; if(v===null||v===undefined) return;
+        N('E'+row,v);
+      });
+    });
+  }
+  return {tftEcart};
+}
+async function exportDGID(){
+  const st=$('st-dgid'); st.className='status'; st.textContent='Génération en cours…';
+  try{
+    if(!M.out) throw new Error('Montez d\'abord les états financiers (étape 3).');
+    let buf;
+    try{
+      const resp=await fetch('modele_dgid.xlsx');
+      if(!resp.ok) throw 0;
+      buf=await resp.arrayBuffer();
+    }catch(e){
+      throw new Error('Modèle DGID intégré introuvable. Vérifiez que « modele_dgid.xlsx » est présent dans le dossier de l\'application.');
+    }
+    let zip;
+    try{ zip=await JSZip.loadAsync(buf); }
+    catch(e){ throw new Error('Modèle DGID illisible.'); }
+    const pBP=await getSheetPath(zip,'BILAN PAYSAGE');
+    const pR1=await getSheetPath(zip,'Fiche de renseignement R1');
+    if(!pBP||!pR1) throw new Error('Le modèle intégré ne correspond pas au format DGID attendu.');
+    const {tftEcart}=await injectDGID(zip);
+    let wbXml=await zip.file('xl/workbook.xml').async('string');
+    if(/<calcPr\b/.test(wbXml)) wbXml=wbXml.replace(/<calcPr\b([^>]*?)\/>/,(m,a)=>/fullCalcOnLoad/.test(a)?m:`<calcPr${a} fullCalcOnLoad="1"/>`);
+    else wbXml=wbXml.replace('</workbook>','<calcPr fullCalcOnLoad="1"/></workbook>');
+    zip.file('xl/workbook.xml',wbXml);
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+    dl(blob,'DGID_'+(M.fiche.denom||'ENTITE').replace(/[^A-Za-z0-9]+/g,'_')+'.xlsx');
+    let msg='Fichier DGID généré ✓ (fiche R1, bilan, compte de résultat'+(M.out.sysco?', flux de trésorerie':'')+' reportés).';
+    if(M.out.sysco&&M.balN1&&tftEcart) msg+=' ⚠️ TFT : écart de contrôle de '+fmt(tftEcart)+' — certaines lignes (FF-FN) sont estimées, à ajuster dans le fichier.';
+    if(!M.balN1) msg+=' Colonnes N-1 vides (balance N-1 non fournie).';
+    st.className='status ok'; st.textContent=msg;
+    $('dgid-note-sys').style.display=M.out.sysco?'none':'block';
+  }catch(err){ st.className='status err'; st.textContent=err.message; }
+}
+/* Export simple (classeur de travail) */
+function exportSimple(){
+  if(!M.out) return;
+  const o=M.out, F=M.fiche, hasN1=!!M.balN1;
+  const wb=XLSX.utils.book_new();
+  const fiche=[['FICHE R1 — IDENTIFICATION'],[],
+    ['Dénomination',F.denom||''],['Sigle',F.sigle||''],['NINEA / IFU',F.ninea||''],['N° télédéclarant',F.ntd||''],
+    ['RCCM',F.rccm||''],['Adresse',F.adresse||''],['Ville',F.ville||''],['Téléphone',F.tel||''],['E-mail',F.email||''],
+    ['Activité principale',F.activite||''],['Forme juridique',F.formeJur||''],['Régime fiscal',F.regimeFiscal||''],
+    ['Centre des impôts',F.centreImpot||''],['Exercice du',F.exDu||''],['au',F.exAu||''],
+    ['Dirigeant',F.dirNom||''],['Signataire',F.sigNom||''],['Qualité',F.sigQualite||'']];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(fiche),'FICHE R1');
+  const A=[['REF','ACTIF','BRUT','AMORT-DEPREC','NET N'].concat(hasN1?['NET N-1']:[])].concat(
+    o.actif.map(l=>[l.ref,l.label,Math.round(l.brut||0),Math.round(l.amort||0),Math.round(l.net||0)].concat(hasN1?[Math.round(l.netN1||0)]:[])));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(A),'BILAN ACTIF');
+  const P=[['REF','PASSIF','NET N'].concat(hasN1?['NET N-1']:[])].concat(
+    o.passif.map(l=>[l.ref,l.label,Math.round(l.net||0)].concat(hasN1?[Math.round(l.netN1||0)]:[])));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(P),'BILAN PASSIF');
+  const C=[['REF','LIBELLES','SIGNE','EXERCICE N'].concat(hasN1?['EXERCICE N-1']:[])].concat(
+    o.cr.map(l=>[l.ref,l.label,l.s||'',Math.round(l.net||0)].concat(hasN1?[Math.round(l.netN1||0)]:[])));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(C),'COMPTE DE RESULTAT');
+  const bal=[['COMPTE','INTITULE','SI DEBIT','SI CREDIT','MVT DEBIT','MVT CREDIT','SF DEBIT','SF CREDIT']].concat(
+    M.balN.data.map(e=>[e.cpte,e.lib,e.sid,e.sic,e.md,e.mc,e.sfd,e.sfc]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(bal),'BALANCE N');
+  XLSX.writeFile(wb,'ETATS_TRAVAIL_'+(F.denom||'ENTITE').replace(/[^A-Za-z0-9]+/g,'_')+'.xlsx');
+}
+
+/* ══ Bindings ══ */
+bindDrop('BN', f=>loadBal('balN',f));
+bindDrop('BN1',f=>loadBal('balN1',f));
+bindDrop('TPL',f=>{ M.tpl=f; $('fname-TPL').textContent=f.name; $('drop-TPL').classList.add('has-file'); });
+(function(){var fi=document.getElementById('file-fiche'); if(fi) fi.addEventListener('change',e=>{ if(e.target.files[0]) parseFicheExcel(e.target.files[0]); e.target.value=''; });})();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+try{ if(window.self!==window.top){ var _al=document.getElementById('accueil-link'); if(_al) _al.textContent='← Audit'; } }catch(e){}
+// restaurer le système choisi
+(function(){ const s=localStorage.getItem('montage-sys'); if(s){ const c=document.querySelector(`.sys-card[data-sys="${s}"]`); if(c) pickSys(c); } })();
+document.querySelectorAll('.sys-card').forEach(c=>c.addEventListener('click',()=>localStorage.setItem('montage-sys',c.dataset.sys)));
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "Sycora — États financiers & Audit",
+  "short_name": "Sycora",
+  "description": "Montage des états financiers SYSCOHADA et SYCEBNL à partir des balances N/N-1 (export DGID, Excel, PDF) et outil d'audit des balances.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10243E",
+  "theme_color": "#10243E",
+  "lang": "fr",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

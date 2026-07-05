@@ -1,0 +1,104 @@
+====================================================================
+  SYCORA — États financiers & Audit
+  Application unifiée (PWA hors-ligne)
+====================================================================
+
+À l'ouverture, un ÉCRAN D'ACCUEIL présente les deux modules sous
+forme de deux grandes cartes :
+
+  📊 MONTAGE DES ÉTATS FINANCIERS
+  🔍 AUDIT
+
+On entre dans un module en cliquant sa carte. En haut, deux onglets
+(Montage / Audit) permettent de basculer à tout moment ; cliquer le
+logo « SYCORA » revient à l'accueil. Un seul fichier à ouvrir :
+index.html.
+
+
+--------------------------------------------------------------------
+1. FICHIERS FOURNIS
+--------------------------------------------------------------------
+  index.html          Application (accueil + Audit + Montage).
+  montage.html        Module de montage (chargé par l'onglet Montage).
+  modele_dgid.xlsx    Modèle officiel DGID intégré (rempli à l'export).
+  modele_sycebnl.xlsx Masque de liasse SYCEBNL intégré.
+  manifest.json       Manifeste PWA.
+  sw.js               Service worker (hors-ligne).
+  icon-192.png / icon-512.png  Icônes (logo Sycora).
+  LISEZMOI.txt        Ce fichier.
+
+IMPORTANT : gardez tous ces fichiers dans le MÊME dossier. Les deux
+modèles .xlsx sont chargés automatiquement par l'application — vous
+n'avez plus rien à déposer pour exporter au format DGID.
+
+
+--------------------------------------------------------------------
+2. MODULE MONTAGE — PRINCIPE (comme les masques Excel)
+--------------------------------------------------------------------
+Vous ne saisissez les informations qu'UNE fois et n'importez QUE les
+deux balances. Tout le reste est calculé automatiquement.
+
+1) Système : SYSCOHADA, SYCEBNL (Associations/Fondations) ou
+   SYCEBNL (Projets de développement).
+2) Fiche de renseignement (R1) : saisissez-la, OU importez-la depuis
+   Excel (bouton « Importer la fiche »). Un modèle de fiche Excel est
+   téléchargeable (bouton « Télécharger un modèle de fiche »).
+3) Import des balances : balance N (obligatoire) et balance N-1
+   (recommandée : colonnes N-1 + tableau des flux).
+4) États financiers : bilan (actif/passif), compte de résultat et
+   tableau des flux de trésorerie sont générés et VISUALISABLES dans
+   des onglets, AVANT export.
+
+Exports :
+   • EXCEL — MODÈLE OFFICIEL DGID (recommandé) : l'application remplit
+     automatiquement le modèle DGID intégré (page de garde, fiche R1,
+     bilan paysage, compte de résultat, tableau des flux) dans les
+     cellules exactes. Le fichier obtenu est au format DGID.
+   • PDF — bilan, compte de résultat et flux, mise en forme propre.
+   • LIASSE EXCEL (masque) — alternative : remplit le masque du
+     système (les formules du masque recalculent tout dans Excel).
+
+
+--------------------------------------------------------------------
+3. LIMITES CONNUES (à lire)
+--------------------------------------------------------------------
+• NOTES ANNEXES 1 à 36 : elles ne sont pas encore remplies
+  automatiquement. Bilan, compte de résultat et flux de trésorerie le
+  sont. Les notes restent à compléter dans le fichier DGID généré.
+  (Amélioration prévue : remplissage automatique des notes.)
+• Tableau des flux : CAFG et variations de BFR calculées ; certaines
+  lignes d'investissement/financement (FF à FN) sont ESTIMÉES à
+  partir des variations de bilan (écart de contrôle affiché).
+• Colonnes N-1 vides si la balance N-1 n'est pas importée.
+• Entité SYCEBNL exportée sur le formulaire DGID (SYSCOHADA) : les
+  rubriques les plus proches sont reportées ; à vérifier avant dépôt.
+
+
+--------------------------------------------------------------------
+4. MODULE AUDIT — CORRECTION
+--------------------------------------------------------------------
+Le chargement du rapport de l'exercice précédent (N-1, Word) est
+corrigé : les colonnes d'années sont désormais détectées
+automatiquement (l'année la plus récente = N, la précédente = N-1),
+quel que soit l'exercice. Le rapport se charge donc correctement,
+sans année codée en dur.
+
+
+--------------------------------------------------------------------
+5. MISE EN SERVICE
+--------------------------------------------------------------------
+Placez tous les fichiers dans un même dossier et ouvrez index.html
+(de préférence en HTTPS ou via un petit serveur local, pour activer
+le mode hors-ligne et l'installation PWA). Le nouvel index.html
+remplace votre ancienne application d'audit : il contient déjà tout
+l'audit.
+
+
+--------------------------------------------------------------------
+6. RENOMMER / RE-STYLER
+--------------------------------------------------------------------
+Nom : remplacez « Sycora » / « SYCORA » dans index.html et
+manifest.json. Logo : bloc <svg class="sy-logo"> dans index.html +
+icônes icon-192.png / icon-512.png.
+
+====================================================================
