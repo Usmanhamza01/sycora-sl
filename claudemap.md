@@ -1,7 +1,7 @@
 # CLAUDEMAP — Sycora
 
 > Carte vivante du projet. Mise à jour à chaque évolution.
-> **Version : 0.9** · Dernière mise à jour : session « remplacement du module Analyse par la version AuditDiag complète »
+> **Version : 0.10** · Dernière mise à jour : session « mise à jour Analyse (export Excel) »
 > Règle : ce fichier doit toujours refléter l'état réel du code livré.
 
 ---
@@ -127,7 +127,7 @@ Mécanique d'injection Excel : JSZip + DOMParser ; `getSheetPath()` (résolution
 
 ## 5bis. Module ANALYSE DES COMPTES (analyse.html)
 
-**Version en production : fichier fourni par le client (AuditDiag complet, ~135 Ko, 1942 lignes),
+**Version en production : fichier fourni par le client (AuditDiag complet, ~136 Ko, 1962 lignes),
 intégré tel quel — aucune modification.** Il remplace le portage initial réalisé côté Sycora.
 
 - Titre : « Sycora — Analyse des comptes (AuditDiag) ».
@@ -135,7 +135,7 @@ intégré tel quel — aucune modification.** Il remplace le portage initial ré
   lorsqu'il est chargé en iframe.
 - Dépendances propres : **Chart.js 4.4.1** (graphiques), **html-docx-js 0.3.1** + **FileSaver 2.0.5**
   (export Word), en plus de `xlsx`. Ajoutées à `STATIC_ASSETS` du service worker
-  (cache passé en `sycora-v2`) pour le fonctionnement hors-ligne.
+  (cache `sycora-v3`) pour le fonctionnement hors-ligne.
 - Logique métier de référence : `REFERENCE_MOTEUR_AUDITDIAG.md` (parsing grand livre par delta
   de solde progressif, classification SYSCOHADA générique, ratios, base de connaissances,
   anomalies, comparatif N/N-1).
@@ -212,6 +212,10 @@ Notes injectées en DGID (23) : 4,6,7,8,9,10,11,14,15A,16A,17,18,19,20,21,22,23,
 - **0.9** — Module Analyse remplacé par la **version AuditDiag complète fournie par le client**
   (intégrée verbatim). Service worker mis à jour (`sycora-v2`) avec Chart.js, html-docx-js et
   FileSaver pour l'usage hors-ligne. Intégration vérifiée (onglet, carte, iframe, lien retour).
+
+- **0.10** — Module Analyse mis à jour (version client la plus récente) : export Excel corrigé —
+  noms d'onglets rendus **uniques** et nommés par code de compte (`<code> - N-N1` / `<code> - Detail`),
+  ce qui évitait l'échec de génération en cas de noms d'onglets identiques. Cache SW → `sycora-v3`.
 
 ### Prochaines étapes proposées
 - Catégorie B (mouvements : immobilisations 3A/3C/3D, provisions, capital) via SI + md/mc.

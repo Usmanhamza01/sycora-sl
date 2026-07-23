@@ -1906,16 +1906,36 @@ const Render = (() => {
       return;
     }
     const wb = XLSX.utils.book_new();
+    const usedNames = new Set();
+    function uniqueName(base) {
+      let name = base.replace(/[\[\]\*\/\\\?:]/g, '').slice(0, 31) || 'Feuille';
+      let candidate = name;
+      let n = 2;
+      while (usedNames.has(candidate)) {
+        const suffix = ` (${n})`;
+        candidate = name.slice(0, 31 - suffix.length) + suffix;
+        n++;
+      }
+      usedNames.add(candidate);
+      return candidate;
+    }
     tables.forEach((t, i) => {
       let name = `Tableau ${i + 1}`;
-      let prev = t.previousElementSibling;
-      let hops = 0;
-      while (prev && hops < 4) {
-        if (prev.classList && (prev.classList.contains('subhead') || /^H[1-3]$/.test(prev.tagName))) { name = prev.textContent.trim().slice(0, 28); break; }
-        prev = prev.previousElementSibling; hops++;
+      const ficheItem = t.closest('.fiche-item');
+      if (ficheItem && ficheItem.dataset.code) {
+        // Distingue les tableaux d'une même fiche compte (ex: "N/N-1" vs "Détail mouvements")
+        const isDetail = /d[ée]tail des mouvements/i.test((t.previousElementSibling && t.previousElementSibling.textContent) || '');
+        name = `${ficheItem.dataset.code} - ${isDetail ? 'Detail' : 'N-N1'}`;
+      } else {
+        let prev = t.previousElementSibling;
+        let hops = 0;
+        while (prev && hops < 4) {
+          if (prev.classList && (prev.classList.contains('subhead') || /^H[1-3]$/.test(prev.tagName))) { name = prev.textContent.trim().slice(0, 28); break; }
+          prev = prev.previousElementSibling; hops++;
+        }
       }
       const ws = XLSX.utils.table_to_sheet(t);
-      XLSX.utils.book_append_sheet(wb, ws, name.replace(/[\[\]\*\/\\\?:]/g, '').slice(0, 31) || `Feuille${i + 1}`);
+      XLSX.utils.book_append_sheet(wb, ws, uniqueName(name));
     });
     XLSX.writeFile(wb, `${label.replace(/[^a-z0-9]+/gi, '_')}_${(lastCtx.meta.company || 'client').replace(/[^a-z0-9]+/gi, '_')}.xlsx`);
   });
