@@ -1,4 +1,4 @@
-const CACHE = 'sycora-v3';
+const CACHE = 'sycora-v4';
 
 // Assets statiques mis en cache (icônes + librairies).
 // Les pages HTML (index/montage/auris) ne sont PAS pré-cachées :

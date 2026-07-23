@@ -1021,16 +1021,46 @@ const Render = (() => {
   }
   function pct(x) { return (x === null || x === undefined || isNaN(x)) ? 'n/d' : (x * 100).toFixed(1) + ' %'; }
   function badge(sev) {
-    const map = { high: ['high', 'Priorité haute'], med: ['med', 'Priorité moyenne'], low: ['low', 'Priorité faible'] };
-    const [cls, label] = map[sev] || ['low', 'Info'];
-    return `<span class="badge ${cls}">${label}</span>`;
+    const map = {
+      high: ['high', 'Priorité haute', '#B33A3A', '#FDECEC'],
+      med: ['med', 'Priorité moyenne', '#B3811A', '#FDF3E1'],
+      low: ['low', 'Priorité faible', '#2E7D4F', '#E9F5EE'],
+    };
+    const [cls, label, color, bg] = map[sev] || map.low;
+    return `<span class="badge ${cls}" style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;color:${color};background:${bg};">${label}</span>`;
   }
   function esc(s) { return (s || '').toString().replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+  // Cellule "brute" : permet d'injecter du HTML déjà construit (ex: badge, code coloré)
+  // dans un tableau sans que table() ne l'échappe comme du texte simple.
+  function raw(html) { return { __raw: html }; }
+  function cellHtml(c) {
+    if (c && typeof c === 'object' && c.__raw !== undefined) return c.__raw;
+    return typeof c === 'number' ? fmtN(c) : esc(c);
+  }
+  // Met en évidence un numéro de compte (couleur + gras) — couleurs en hexadécimal
+  // direct (et non var(--navy)) car les variables CSS ne survivent pas toujours
+  // à la conversion HTML → Word.
+  function codeCell(code) {
+    return raw(`<span style="color:#0F2A43;font-weight:700;">${esc(code)}</span>`);
+  }
+  // Badge de risque robuste à l'export Word : un cercle Unicode standard (●) coloré
+  // via style inline, plutôt qu'un émoji couleur (🔴🟡🟢) dont le rendu dépend d'une
+  // police que Word ne charge pas toujours — d'où le carré/mojibake observé à l'export.
+  function riskBadge(sev) {
+    const map = {
+      high: ['#B33A3A', '#FDECEC', 'Risque élevé'],
+      med: ['#B3811A', '#FDF3E1', 'Risque moyen'],
+      low: ['#2E7D4F', '#E9F5EE', 'Risque faible'],
+    };
+    const [color, bg, label] = map[sev] || map.low;
+    return `<span style="display:inline-block;padding:1px 8px;border-radius:9px;font-size:11px;font-weight:700;color:${color};background:${bg};">● ${label}</span>`;
+  }
 
   function table(headers, rows) {
     let h = '<table class="rpt"><thead><tr>' + headers.map(x => `<th>${esc(x)}</th>`).join('') + '</tr></thead><tbody>';
     rows.forEach(r => {
-      h += '<tr>' + r.map((c, i) => `<td class="${typeof c === 'number' ? 'num' : ''}">${typeof c === 'number' ? fmtN(c) : esc(c)}</td>`).join('') + '</tr>';
+      h += '<tr>' + r.map((c) => `<td class="${typeof c === 'number' ? 'num' : ''}">${cellHtml(c)}</td>`).join('') + '</tr>';
     });
     h += '</tbody></table>';
     return h;
@@ -1143,7 +1173,7 @@ const Render = (() => {
       const mvt = d.mv_d + d.mv_c;
       const poids = R.total_actif ? Math.abs(d.net) / R.total_actif : 0;
       const flag = (mvt === 0 && poids > 0.01) ? '⚠ inactif' : (poids > 0.10 ? '● significatif' : '');
-      return [d.code, d.libelle, d.net, flag];
+      return [codeCell(d.code), d.libelle, d.net, flag];
     });
     html += table(["Compte", "Libellé", "Solde final (FCFA)", "Observation"], rows);
     return html;
@@ -1156,14 +1186,14 @@ const Render = (() => {
     const fourn = auxBalance.filter(d => /^F/i.test(d.code)).map(d => ({ ...d, net: d.sf_d - d.sf_c })).sort((a, b) => a.net - b.net);
     html += `<div class="subhead">Clients (${clients.length})</div>`;
     if (clients.length) {
-      html += table(["Code", "Client", "Solde (FCFA)"], clients.map(d => [d.code, d.libelle, d.net]));
+      html += table(["Code", "Client", "Solde (FCFA)"], clients.map(d => [codeCell(d.code), d.libelle, d.net]));
       html += `<div class="chart-wrap"><canvas id="chartClients"></canvas></div>`;
     } else {
       html += `<p class="body-text">Aucun tiers client identifié par la convention de code (préfixe C) dans la balance auxiliaire — vérifier la nomenclature utilisée par le client.</p>`;
     }
     html += `<div class="subhead">Fournisseurs (${fourn.length})</div>`;
     if (fourn.length) {
-      html += table(["Code", "Fournisseur", "Solde (FCFA)"], fourn.map(d => [d.code, d.libelle, d.net]));
+      html += table(["Code", "Fournisseur", "Solde (FCFA)"], fourn.map(d => [codeCell(d.code), d.libelle, d.net]));
       const inactifs = fourn.filter(d => (d.mv_d + d.mv_c) === 0 && Math.abs(d.net) > 0);
       if (inactifs.length) {
         html += `<p class="body-text"><strong>${inactifs.length} fournisseur(s) inactif(s)</strong> (solde hérité de l'ouverture, aucun mouvement sur la période) : ${inactifs.map(d => esc(d.libelle || d.code)).join(', ')}.</p>`;
@@ -1178,7 +1208,7 @@ const Render = (() => {
     const { R } = ctx;
     const banques = R.rows.filter(d => Engine.classe(d.code) === '5');
     let html = `<h2 class="section-h">8. Analyse de trésorerie</h2>`;
-    html += table(["Compte", "Libellé", "Solde (FCFA)"], banques.map(d => [d.code, d.libelle, d.net]));
+    html += table(["Compte", "Libellé", "Solde (FCFA)"], banques.map(d => [codeCell(d.code), d.libelle, d.net]));
     html += `<div class="kpi-grid">
       ${kpi('Trésorerie actif', fmt(R.tresorerie_actif))}
       ${kpi('Trésorerie passif (concours)', fmt(R.tresorerie_passif))}
@@ -1194,11 +1224,11 @@ const Render = (() => {
     const social = R.rows.filter(d => Engine.classe(d.code) === '4' && Engine.sousClasse4(d.code) === 'social');
     const personnel = R.rows.filter(d => Engine.classe(d.code) === '4' && Engine.sousClasse4(d.code) === 'personnel');
     let html = `<h2 class="section-h">9. Analyse fiscale</h2>`;
-    html += etat.length ? table(["Compte", "Libellé", "Solde (FCFA)"], etat.map(d => [d.code, d.libelle, d.net]))
+    html += etat.length ? table(["Compte", "Libellé", "Solde (FCFA)"], etat.map(d => [codeCell(d.code), d.libelle, d.net]))
       : `<p class="body-text">Aucun compte d'état identifié (classe 44).</p>`;
     html += `<h2 class="section-h" style="margin-top:26px;">10. Analyse sociale</h2>`;
     html += (social.length || personnel.length)
-      ? table(["Compte", "Libellé", "Solde (FCFA)"], [...personnel, ...social].map(d => [d.code, d.libelle, d.net]))
+      ? table(["Compte", "Libellé", "Solde (FCFA)"], [...personnel, ...social].map(d => [codeCell(d.code), d.libelle, d.net]))
       : `<p class="body-text">Aucun compte social identifié (classes 42/43).</p>`;
     return html;
   }
@@ -1229,15 +1259,11 @@ const Render = (() => {
     return html;
   }
 
-  function riskDot(sev) {
-    return sev === 'high' ? '🔴' : (sev === 'med' ? '🟡' : '🟢');
-  }
-
   function ficheBodyHtml(f) {
     const kb = f.kb;
     return `
           <div class="subhead">A. Présentation</div>
-          <p class="body-text">Compte <strong>${esc(f.code)}</strong> — ${esc(f.libelle)}. Classe comptable ${esc(f.classeDigit)}. Nature : ${esc(kb.nature)}. Fonctionnement normal : ${esc(kb.sens)}.</p>
+          <p class="body-text">Compte <strong style="color:#0F2A43;">${esc(f.code)}</strong> — ${esc(f.libelle)}. Classe comptable ${esc(f.classeDigit)}. Nature : ${esc(kb.nature)}. Fonctionnement normal : ${esc(kb.sens)}.</p>
 
           <div class="subhead">B. Comparatif N / N-1</div>
           ${f.n1Connu ? table(["Rubrique", "Exercice N", "Exercice N-1", "Variation absolue", "Variation %"],
@@ -1272,7 +1298,7 @@ const Render = (() => {
             ${f.mv.doublons.length ? ` ${f.mv.doublons.length} écriture(s) en doublon potentiel (libellé + montant identiques).` : ''}
           </p>
 
-          <div class="subhead">G. Anomalies identifiées — niveau de risque ${riskDot(f.risk)}</div>
+          <div class="subhead">G. Anomalies identifiées — niveau de risque ${riskBadge(f.risk)}</div>
           <ul class="bullets">${f.anomalies.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
 
           <div class="subhead">H. Questions à poser au client</div>
@@ -1297,14 +1323,14 @@ const Render = (() => {
       html += `<div class="note-box">Mode « Rapport synthèse » : tableau condensé ci-dessous. Basculez sur « Rapport complet » (en haut de page) pour afficher la fiche détaillée A-I de chaque compte.</div>`;
       const rows = sortedRows.map(d => {
         const f = ctx._fiches[d.code];
-        return [f.code, f.libelle, f.classeDigit, f.kb.nature, f.netN, f.n1Connu && isFinite(f.variationPct) ? pct(f.variationPct / 100) : 'n/d', riskDot(f.risk) + ' ' + (f.risk === 'high' ? 'Élevé' : f.risk === 'med' ? 'Moyen' : 'Faible')];
+        return [codeCell(f.code), f.libelle, f.classeDigit, f.kb.nature, f.netN, f.n1Connu && isFinite(f.variationPct) ? pct(f.variationPct / 100) : 'n/d', raw(riskBadge(f.risk))];
       });
       html += table(["Compte", "Libellé", "Classe", "Nature", "Solde N (FCFA)", "Variation N/N-1", "Risque"], rows);
       return html;
     }
 
     // Mode "complet" : fiche détaillée pour chaque compte, affichée intégralement (non repliée)
-    html += `<div class="grid" style="margin-bottom:16px;">
+    html += `<div class="grid no-print" style="margin-bottom:16px;">
       <div><label>Rechercher (n° ou libellé)</label><input type="text" id="ficheSearch" placeholder="Ex : 411, clients, banque…"></div>
       <div><label>Filtrer par risque</label>
         <select id="ficheRiskFilter" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:14px;">
@@ -1318,7 +1344,7 @@ const Render = (() => {
     sortedRows.forEach(d => {
       const f = ctx._fiches[d.code];
       html += `<details class="fiche-item" data-code="${esc(f.code)}" data-libelle="${esc(f.libelle.toLowerCase())}" data-risk="${f.risk}" open>
-        <summary>${riskDot(f.risk)} <strong>${esc(f.code)}</strong> — ${esc(f.libelle)} <span style="color:var(--muted);font-weight:400;"> · classe ${esc(f.classeDigit)} · ${esc(f.kb.nature)} · solde ${fmt(f.netN)}</span></summary>
+        <summary>${riskBadge(f.risk)} <strong style="color:#0F2A43;">${esc(f.code)}</strong> — ${esc(f.libelle)} <span style="color:var(--muted);font-weight:400;"> · classe ${esc(f.classeDigit)} · ${esc(f.kb.nature)} · solde ${fmt(f.netN)}</span></summary>
         <div class="fiche-body">${ficheBodyHtml(f)}</div>
       </details>`;
     });
@@ -1379,14 +1405,14 @@ const Render = (() => {
       const list = byClasse['6'].slice().sort((a, b) => (b.sf_d - b.sf_c) - (a.sf_d - a.sf_c));
       html += `<div class="subhead">Classe 6 — Charges</div>`;
       html += table(["Compte", "Libellé", "Montant (FCFA)", "Poids / total charges"],
-        list.map(d => [d.code, d.libelle, d.sf_d - d.sf_c, pct(R.charges_totales ? (d.sf_d - d.sf_c) / R.charges_totales : null)]));
+        list.map(d => [codeCell(d.code), d.libelle, d.sf_d - d.sf_c, pct(R.charges_totales ? (d.sf_d - d.sf_c) / R.charges_totales : null)]));
       html += `<p class="body-text">Poids des charges dans le chiffre d'affaires de la période : ${pct(R.produits_totaux ? R.charges_totales / R.produits_totaux : null)}. Les postes ci-dessus classés par ordre décroissant constituent les principaux gisements d'économie potentielle à challenger avec le dirigeant.</p>`;
     }
     if (byClasse['7']) {
       const list = byClasse['7'].slice().sort((a, b) => (b.sf_c - b.sf_d) - (a.sf_c - a.sf_d));
       html += `<div class="subhead">Classe 7 — Produits</div>`;
       html += table(["Compte", "Libellé", "Montant (FCFA)", "Poids / total produits"],
-        list.map(d => [d.code, d.libelle, d.sf_c - d.sf_d, pct(R.produits_totaux ? (d.sf_c - d.sf_d) / R.produits_totaux : null)]));
+        list.map(d => [codeCell(d.code), d.libelle, d.sf_c - d.sf_d, pct(R.produits_totaux ? (d.sf_c - d.sf_d) / R.produits_totaux : null)]));
       const clients = auxBalance.filter(x => /^C/i.test(x.code));
       if (clients.length) {
         const totalC = clients.reduce((s, x) => s + Math.abs(x.sf_d - x.sf_c), 0);
@@ -1397,7 +1423,7 @@ const Render = (() => {
     }
     if (byClasse['8'] && byClasse['8'].length) {
       html += `<div class="subhead">Classe 8 — Comptes spéciaux / HAO / engagements</div>`;
-      html += table(["Compte", "Libellé", "Solde (FCFA)"], byClasse['8'].map(d => [d.code, d.libelle, d.sf_d - d.sf_c]));
+      html += table(["Compte", "Libellé", "Solde (FCFA)"], byClasse['8'].map(d => [codeCell(d.code), d.libelle, d.sf_d - d.sf_c]));
     } else {
       html += `<div class="subhead">Classe 8 — Comptes spéciaux / HAO / engagements</div><p class="body-text">Aucun compte de classe 8 mouvementé sur la période transmise.</p>`;
     }
@@ -1826,7 +1852,7 @@ const Render = (() => {
         table{border-collapse:collapse;width:100%;margin:10px 0;}
         th{background:#0F2A43;color:#fff;padding:5px 8px;text-align:left;font-size:9.5pt;}
         td{padding:4px 8px;border-bottom:1px solid #DDD;font-size:9.5pt;}
-        .kpi-grid,.chart-row,.chart-wrap,canvas{display:none;}
+        .kpi-grid,.chart-row,.chart-wrap,canvas,.no-print{display:none;}
         .badge{padding:1px 6px;border-radius:10px;font-size:8pt;}
         .badge.high{background:#FDECEC;color:#B33A3A;}
         .badge.med{background:#FDF3E1;color:#B3811A;}
@@ -1884,7 +1910,7 @@ const Render = (() => {
         table{border-collapse:collapse;width:100%;margin:10px 0;}
         th{background:#0F2A43;color:#fff;padding:5px 8px;text-align:left;font-size:9.5pt;}
         td{padding:4px 8px;border-bottom:1px solid #DDD;font-size:9.5pt;}
-        .kpi-grid,.chart-row,.chart-wrap,canvas{display:none;}
+        .kpi-grid,.chart-row,.chart-wrap,canvas,.no-print{display:none;}
       </style></head><body>
       <h1 style="color:#0F2A43;">${lastCtx.meta.company} — ${label}</h1>
       ${el.innerHTML}
