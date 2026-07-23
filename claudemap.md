@@ -1,7 +1,7 @@
 # CLAUDEMAP — Sycora
 
 > Carte vivante du projet. Mise à jour à chaque évolution.
-> **Version : 0.11** · Dernière mise à jour : session « mise à jour Analyse (export Word) »
+> **Version : 0.12** · Dernière mise à jour : session « mise à jour Analyse (détail par tiers) »
 > Règle : ce fichier doit toujours refléter l'état réel du code livré.
 
 ---
@@ -127,7 +127,7 @@ Mécanique d'injection Excel : JSZip + DOMParser ; `getSheetPath()` (résolution
 
 ## 5bis. Module ANALYSE DES COMPTES (analyse.html)
 
-**Version en production : fichier fourni par le client (AuditDiag complet, ~138 Ko, 1988 lignes),
+**Version en production : fichier fourni par le client (AuditDiag complet, ~144 Ko, 2094 lignes),
 intégré tel quel — aucune modification.** Il remplace le portage initial réalisé côté Sycora.
 
 - Titre : « Sycora — Analyse des comptes (AuditDiag) ».
@@ -135,7 +135,7 @@ intégré tel quel — aucune modification.** Il remplace le portage initial ré
   lorsqu'il est chargé en iframe.
 - Dépendances propres : **Chart.js 4.4.1** (graphiques), **html-docx-js 0.3.1** + **FileSaver 2.0.5**
   (export Word), en plus de `xlsx`. Ajoutées à `STATIC_ASSETS` du service worker
-  (cache `sycora-v4`) pour le fonctionnement hors-ligne.
+  (cache `sycora-v5`) pour le fonctionnement hors-ligne.
 - Logique métier de référence : `REFERENCE_MOTEUR_AUDITDIAG.md` (parsing grand livre par delta
   de solde progressif, classification SYSCOHADA générique, ratios, base de connaissances,
   anomalies, comparatif N/N-1).
@@ -222,6 +222,12 @@ Notes injectées en DGID (23) : 4,6,7,8,9,10,11,14,15A,16A,17,18,19,20,21,22,23,
   dépendait d'une police absente de Word), codes de comptes mis en évidence en couleurs
   hexadécimales (les variables CSS ne survivent pas à la conversion HTML → Word), et cellules
   de tableau acceptant du HTML pré-construit (`raw()` / `cellHtml()`). Cache SW → `sycora-v4`.
+
+- **0.12** — Module Analyse mis à jour (version client) : **détail par tiers** à partir du grand
+  livre auxiliaire — fiche par client / fournisseur avec comparatif N/N-1, liste des écritures,
+  et anomalies (doublons, montants ronds ≥ 1 M multiples de 100 000, **ancienneté** du solde
+  au-delà de 90 j / 180 j, solde sans écriture retrouvée). Deux modes de rapport
+  (`reportMode` : « complet » avec le détail par tiers, « synthèse » sans). Cache SW → `sycora-v5`.
 
 ### Prochaines étapes proposées
 - Catégorie B (mouvements : immobilisations 3A/3C/3D, provisions, capital) via SI + md/mc.

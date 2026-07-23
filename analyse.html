@@ -875,6 +875,53 @@ const Fiches = (() => {
     };
   }
 
+  const ANCIENNETE_SEUIL_JOURS = 90;
+
+  function buildTierFiche(d, ctx, glDict) {
+    const netN = d.sf_d - d.sf_c;
+    const netN1 = d.si_d - d.si_c;
+    const variationAbs = netN - netN1;
+    const variationPct = netN1 !== 0 ? (variationAbs / Math.abs(netN1)) * 100 : (netN !== 0 ? Infinity : 0);
+    const mv = analyseMovements(d.code, glDict);
+
+    // Ancienneté : écart entre la dernière écriture connue pour ce tiers et la fin de période.
+    // Heuristique simple (pas de lettrage facture/règlement) : un solde significatif sans
+    // écriture récente est un signal d'ancienneté à vérifier.
+    let ancienneteJours = null;
+    if (mv.entries.length && ctx.meta && ctx.meta.dateEnd) {
+      const dates = mv.entries.map(e => new Date(e.date).getTime()).filter(t => !isNaN(t));
+      if (dates.length) {
+        const derniere = new Date(Math.max(...dates));
+        const fin = new Date(ctx.meta.dateEnd);
+        ancienneteJours = Math.round((fin - derniere) / 86400000);
+      }
+    }
+
+    const anomalies = [];
+    let risk = 'low';
+    const bump = (l) => { if (l === 'high' || (l === 'med' && risk === 'low')) risk = l; };
+
+    if (mv.doublons.length) {
+      anomalies.push(`${mv.doublons.length} écriture(s) en doublon potentiel (même libellé + même montant) — risque de double facturation ou double règlement à vérifier.`);
+      bump('med');
+    }
+    if (mv.montantsRonds.length) {
+      anomalies.push(`${mv.montantsRonds.length} écriture(s) à montant rond (≥ 1 000 000, multiple de 100 000) parmi les mouvements de ce tiers.`);
+      bump('low');
+    }
+    if (ancienneteJours !== null && Math.abs(netN) > 0 && ancienneteJours > ANCIENNETE_SEUIL_JOURS) {
+      anomalies.push(`Dernière écriture connue il y a ${ancienneteJours} jours par rapport à la fin de période — solde potentiellement ancien, à documenter.`);
+      bump(ancienneteJours > 180 ? 'high' : 'med');
+    }
+    if (mv.entries.length === 0 && Math.abs(netN) > 0) {
+      anomalies.push("Aucune écriture retrouvée dans le grand livre auxiliaire pour ce solde — solde hérité non détaillé, ou tiers absent du grand livre transmis.");
+      bump('low');
+    }
+    if (!anomalies.length) anomalies.push("Aucune anomalie détectée sur ce tiers.");
+
+    return { code: d.code, libelle: d.libelle, netN, netN1, variationAbs, variationPct, mv, ancienneteJours, anomalies, risk };
+  }
+
   function buildFiche(d, ctx) {
     const { R, glAccounts, meta, balanceN1Map } = ctx;
     const code = d.code, libelle = d.libelle;
@@ -996,7 +1043,7 @@ const Fiches = (() => {
     };
   }
 
-  return { buildFiche, fmt, pctTxt };
+  return { buildFiche, buildTierFiche, analyseMovements, fmt, pctTxt };
 })();
 
 </script>
@@ -1179,8 +1226,32 @@ const Render = (() => {
     return html;
   }
 
+  function tierFicheHtml(d, ctx, auxGL, label) {
+    const tf = Fiches.buildTierFiche(d, ctx, auxGL);
+    let body = `<div class="subhead" style="font-size:13px;">Comparatif N / N-1</div>`;
+    body += table(["Rubrique", "Exercice N", "Exercice N-1", "Variation absolue", "Variation %"],
+      [["Solde", tf.netN, tf.netN1, tf.variationAbs, isFinite(tf.variationPct) ? pct(tf.variationPct / 100) : 'n/d']]);
+
+    body += `<div class="subhead" style="font-size:13px;">Écritures (grand livre auxiliaire)</div>`;
+    if (tf.mv.entries.length) {
+      const sorted = tf.mv.entries.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+      body += table(["Date", "Libellé", "Montant (FCFA)"], sorted.map(e => [new Date(e.date).toLocaleDateString('fr-FR'), e.text || '(libellé non identifié)', e.sens]));
+    } else {
+      body += `<p class="body-text">Aucune écriture retrouvée pour ce tiers dans le grand livre auxiliaire transmis.</p>`;
+    }
+
+    body += `<div class="subhead" style="font-size:13px;">Anomalies — niveau de risque ${riskBadge(tf.risk)}</div>`;
+    body += `<ul class="bullets">${tf.anomalies.map(a => `<li>${esc(a)}</li>`).join('')}</ul>`;
+
+    return `<details class="fiche-item" data-code="${esc(tf.code)}" data-libelle="${esc(tf.libelle.toLowerCase())}" data-risk="${tf.risk}">
+      <summary>${riskBadge(tf.risk)} <strong style="color:#0F2A43;">${esc(tf.code)}</strong> — ${esc(tf.libelle)} <span style="color:var(--muted);font-weight:400;"> · ${label} · solde ${fmt(tf.netN)}</span></summary>
+      <div class="fiche-body">${body}</div>
+    </details>`;
+  }
+
   function buildTiers(ctx) {
-    const { auxBalance, R } = ctx;
+    const { auxBalance, auxGL, R } = ctx;
+    const mode = ctx.reportMode || 'complet';
     let html = `<h2 class="section-h">6-7. Balance auxiliaire — clients &amp; fournisseurs</h2>`;
     const clients = auxBalance.filter(d => /^C/i.test(d.code)).map(d => ({ ...d, net: d.sf_d - d.sf_c })).sort((a, b) => b.net - a.net);
     const fourn = auxBalance.filter(d => /^F/i.test(d.code)).map(d => ({ ...d, net: d.sf_d - d.sf_c })).sort((a, b) => a.net - b.net);
@@ -1201,6 +1272,27 @@ const Render = (() => {
     } else {
       html += `<p class="body-text">Aucun tiers fournisseur identifié par la convention de code (préfixe F) dans la balance auxiliaire — vérifier la nomenclature utilisée par le client.</p>`;
     }
+
+    if (mode === 'complet' && (clients.length || fourn.length)) {
+      const hasGL = auxGL && Object.keys(auxGL).length > 0;
+      html += `<h2 class="section-h" style="margin-top:26px;">Détail par tiers (grand livre auxiliaire)</h2>`;
+      if (!hasGL) {
+        html += `<div class="note-box">Aucun grand livre auxiliaire n'a été analysé (fichier non transmis ou vide) : le détail des écritures par tiers ci-dessous ne peut pas être établi. Les comparatifs N/N-1 restent disponibles à partir de la balance auxiliaire.</div>`;
+      }
+      if (clients.length) {
+        html += `<div class="subhead">Clients</div><div>`;
+        clients.forEach(d => { html += tierFicheHtml(d, ctx, auxGL || {}, 'Client'); });
+        html += `</div>`;
+      }
+      if (fourn.length) {
+        html += `<div class="subhead">Fournisseurs</div><div>`;
+        fourn.forEach(d => { html += tierFicheHtml(d, ctx, auxGL || {}, 'Fournisseur'); });
+        html += `</div>`;
+      }
+    } else if (mode === 'synthese' && (clients.length || fourn.length)) {
+      html += `<div class="note-box">Mode « Rapport synthèse » : basculez sur « Rapport complet » pour le détail des écritures par tiers (grand livre auxiliaire).</div>`;
+    }
+
     return html;
   }
 
@@ -1813,14 +1905,28 @@ const Render = (() => {
     ];
     const nbJours = nbJoursBetween('2026-01-01', '2026-06-30');
     const R = Engine.aggregate(balance, { nbJours });
-    const findings = Rules.detect(R, glAccounts, auxBalance, {}, nbJours);
+    const auxGLDemo = {
+      'C001': { code: 'C001', libelle: 'Client Alpha', entries: [
+        { date: new Date('2026-01-10'), journal: 'VTE', piece: '12', text: 'Facture n°FA-0012', montant: 20000000, sens: 20000000 },
+        { date: new Date('2026-03-05'), journal: 'BQ', piece: '44', text: 'Règlement chèque n°778', montant: 15000000, sens: -15000000 },
+      ] },
+      'C002': { code: 'C002', libelle: 'Client Beta', entries: [
+        { date: new Date('2026-01-15'), journal: 'VTE', piece: '15', text: 'Facture n°FA-0015', montant: 18000000, sens: 18000000 },
+        { date: new Date('2026-01-15'), journal: 'VTE', piece: '16', text: 'Facture n°FA-0015', montant: 18000000, sens: 18000000 },
+      ] },
+      'F001': { code: 'F001', libelle: 'Fournisseur Gamma', entries: [
+        { date: new Date('2026-02-01'), journal: 'ACH', piece: '5', text: 'Facture achat n°A-005', montant: 12000000, sens: -12000000 },
+        { date: new Date('2026-02-20'), journal: 'BQ', piece: '60', text: 'Règlement virement', montant: 12000000, sens: 12000000 },
+      ] },
+    };
+    const findings = Rules.detect(R, glAccounts, auxBalance, auxGLDemo, nbJours);
     const meta = { company: 'Société Démonstration SARL', ninea: '004512378', rccm: 'SN.DKR.2024.B.9876', dateStart: '2026-01-01', dateEnd: '2026-06-30', nbJours };
     const balanceN1Map = {
       '601000': 34000000, // achats N-1 (comparaison possible pour une charge, convention débit = positif)
       '701000': -58000000, // ventes N-1 (comparaison possible pour un produit, convention crédit = négatif)
       '411000': 12000000, // clôture N-1 réelle différente du solde d'ouverture affiché (18M) -> démontre l'écart
     };
-    lastCtx = { R, findings, auxBalance, glAccounts, auxGL: {}, meta, balanceN1Map, reportMode: 'complet' };
+    lastCtx = { R, findings, auxBalance, glAccounts, auxGL: auxGLDemo, meta, balanceN1Map, reportMode: 'complet' };
     document.getElementById('clientTag').textContent = meta.company;
     document.getElementById('repTitle').textContent = `Diagnostic — ${meta.company} (jeu de démonstration)`;
     document.getElementById('repSub').textContent = `NINEA ${meta.ninea} · RCCM ${meta.rccm} · Période du ${meta.dateStart} au ${meta.dateEnd}`;
