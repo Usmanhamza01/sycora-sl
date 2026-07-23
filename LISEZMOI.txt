@@ -3,16 +3,17 @@
   Application unifiée (PWA hors-ligne)
 ====================================================================
 
-À l'ouverture, un ÉCRAN D'ACCUEIL présente les deux modules sous
-forme de deux grandes cartes :
+À l'ouverture, un ÉCRAN D'ACCUEIL présente les trois modules sous
+forme de trois grandes cartes :
 
   📊 MONTAGE DES ÉTATS FINANCIERS
   🔍 AUDIT
+  🔬 ANALYSE DES COMPTES
 
-On entre dans un module en cliquant sa carte. En haut, deux onglets
-(Montage / Audit) permettent de basculer à tout moment ; cliquer le
-logo « SYCORA » revient à l'accueil. Un seul fichier à ouvrir :
-index.html.
+On entre dans un module en cliquant sa carte. En haut, trois onglets
+(Montage / Audit / Analyse des comptes) permettent de basculer à tout
+moment ; cliquer le logo « SYCORA » revient à l'accueil. Un seul
+fichier à ouvrir : index.html.
 
 
 --------------------------------------------------------------------
@@ -20,6 +21,7 @@ index.html.
 --------------------------------------------------------------------
   index.html          Application (accueil + Audit + Montage).
   montage.html        Module de montage (chargé par l'onglet Montage).
+  analyse.html        Module d'analyse des comptes.
   modele_dgid.xlsx    Modèle officiel DGID intégré (rempli à l'export).
   modele_sycebnl.xlsx Masque de liasse SYCEBNL intégré.
   manifest.json       Manifeste PWA.
@@ -60,12 +62,24 @@ Exports :
 
 
 --------------------------------------------------------------------
-3. LIMITES CONNUES (à lire)
+3. NOTES ANNEXES (automatiques)
 --------------------------------------------------------------------
-• NOTES ANNEXES 1 à 36 : elles ne sont pas encore remplies
-  automatiquement. Bilan, compte de résultat et flux de trésorerie le
-  sont. Les notes restent à compléter dans le fichier DGID généré.
-  (Amélioration prévue : remplissage automatique des notes.)
+• Les NOTES ANNEXES (jusqu'à 35) sont désormais calculées
+  automatiquement à partir des balances :
+  - visibles à l'écran dans l'onglet « Notes annexes » (avant export) ;
+  - remplies et recalculées dans Excel via l'export « Liasse complète
+    (masque) » — mêmes formules que le masque officiel.
+  L'export DGID remplit désormais le bilan, le compte de résultat,
+  le TFT ET les principales notes annexes (comptes reportés dans les
+  cellules du formulaire DGID). Les totaux des notes se recoupent
+  avec le bilan / compte de résultat. À vérifier avant dépôt : les
+  rubriques détaillées par zone géographique, par échéance ou
+  qualitatives (engagements, méthodes) restent à compléter.
+  L'export « Liasse complète (masque) » reste disponible pour une
+  liasse SYCEBNL entièrement recalculée dans Excel.
+
+--------------------------------------------------------------------
+3bis. AUTRES LIMITES
 • Tableau des flux : CAFG et variations de BFR calculées ; certaines
   lignes d'investissement/financement (FF à FN) sont ESTIMÉES à
   partir des variations de bilan (écart de contrôle affiché).
@@ -73,6 +87,38 @@ Exports :
 • Entité SYCEBNL exportée sur le formulaire DGID (SYSCOHADA) : les
   rubriques les plus proches sont reportées ; à vérifier avant dépôt.
 
+
+--------------------------------------------------------------------
+3ter. MODULE ANALYSE DES COMPTES
+--------------------------------------------------------------------
+Revue comptable détaillée, compte par compte.
+
+Import :
+  - Balance N (obligatoire) : suffit pour lancer l'analyse.
+  - Balance N-1 (facultative) : nécessaire pour comparer les comptes
+    de charges et de produits (ils n'ont pas de solde d'ouverture).
+  - Grand livre (facultatif) : ajoute le détail des écritures pour les
+    comptes à forte variation.
+
+Résultats, en cinq onglets :
+  • SYNTHÈSE — total du bilan, capitaux propres, résultat, trésorerie,
+    structure du bilan et compte de résultat résumé.
+  • RATIOS — fonds de roulement, BFR, trésorerie nette (avec contrôle
+    de cohérence), liquidité, autonomie financière, endettement,
+    délais clients/fournisseurs, marge, rentabilité, CAF.
+  • FICHES PAR COMPTE — pour chaque compte : soldes N et N-1,
+    variation, poids dans le bilan, nature et sens normal, opérations
+    qui l'alimentent, justificatifs à réclamer, CONTRÔLES À MENER,
+    anomalies éventuelles et principaux mouvements de l'exercice.
+    Recherche et filtres (classe, comptes à anomalie, variation forte).
+  • ANOMALIES — classées par priorité : comptes d'attente non soldés,
+    soldes de sens anormal (client créditeur, fournisseur débiteur,
+    caisse créditrice), variations supérieures à 100 %, écarts de
+    report à nouveau, écritures dupliquées, ratios d'alerte,
+    concentration sur un tiers.
+  • RECOMMANDATIONS — plan d'action consolidé.
+
+Exports : PDF (impression) et Word (.doc).
 
 --------------------------------------------------------------------
 4. MODULE AUDIT — CORRECTION
