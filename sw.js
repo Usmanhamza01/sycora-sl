@@ -1,4 +1,4 @@
-const CACHE = 'sycora-v1';
+const CACHE = 'sycora-v2';
 
 // Assets statiques mis en cache (icônes + librairies).
 // Les pages HTML (index/montage/auris) ne sont PAS pré-cachées :
@@ -10,7 +10,10 @@ const STATIC_ASSETS = [
   './modele_dgid.xlsx',
   './modele_sycebnl.xlsx',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js'
 ];
 
 self.addEventListener('install', e => {

@@ -1,7 +1,7 @@
 # CLAUDEMAP — Sycora
 
 > Carte vivante du projet. Mise à jour à chaque évolution.
-> **Version : 0.8** · Dernière mise à jour : session « module Analyse des comptes »
+> **Version : 0.9** · Dernière mise à jour : session « remplacement du module Analyse par la version AuditDiag complète »
 > Règle : ce fichier doit toujours refléter l'état réel du code livré.
 
 ---
@@ -28,7 +28,7 @@ Référentiels visés : **SYSCOHADA** et **SYCEBNL** (Associations/Fondations, P
 |---|---|
 | `index.html` | App unifiée : écran d'accueil (2 cartes) + onglets + module Audit intégré + iframe Montage. **Point d'entrée.** |
 | `montage.html` | Module de montage (chargé dans une iframe par index.html). |
-| `analyse.html` | Module d'analyse des comptes (iframe). Moteur AuditDiag porté. |
+| `analyse.html` | Module d'analyse des comptes (iframe). **Version AuditDiag complète fournie par le client** (135 Ko). |
 | `modele_dgid.xlsx` | Modèle officiel DGID (SYSCOHADA) intégré ; rempli automatiquement à l'export. |
 | `modele_sycebnl.xlsx` | Masque de liasse SYCEBNL intégré (formules SUMIF → notes auto dans Excel). |
 | `manifest.json` | Manifeste PWA (nom Sycora, thème #10243E). |
@@ -37,7 +37,8 @@ Référentiels visés : **SYSCOHADA** et **SYCEBNL** (Associations/Fondations, P
 | `LISEZMOI.txt` | Mode d'emploi client. |
 | `claudemap.md` | Ce fichier. |
 
-**Dépendances CDN** (mises en cache par le SW) : `xlsx 0.18.5`, `jszip 3.10.1`.
+**Dépendances CDN** (mises en cache par le SW, cache `sycora-v2`) : `xlsx 0.18.5`, `jszip 3.10.1`,
+`Chart.js 4.4.1`, `html-docx-js 0.3.1`, `FileSaver 2.0.5` (ces trois dernières pour le module Analyse).
 `index.html` embarque en plus **JSZip inline** (hérité d'Auris).
 
 ---
@@ -126,47 +127,20 @@ Mécanique d'injection Excel : JSZip + DOMParser ; `getSheetPath()` (résolution
 
 ## 5bis. Module ANALYSE DES COMPTES (analyse.html)
 
-Portage du moteur « AuditDiag » (cf. `REFERENCE_MOTEUR_AUDITDIAG.md`).
+**Version en production : fichier fourni par le client (AuditDiag complet, ~135 Ko, 1942 lignes),
+intégré tel quel — aucune modification.** Il remplace le portage initial réalisé côté Sycora.
 
-### Entrées
-- **Balance N** (obligatoire) — `parseBalance()`, même détection globale des colonnes que le montage.
-- **Balance N-1** (facultative) — active la comparaison des comptes de **gestion** (classes 6/7),
-  qui n'ont pas de solde d'ouverture.
-- **Grand livre** (facultatif) — `parseGrandLivre()` : le montant réel d'une écriture est
-  reconstitué par **différence entre deux soldes progressifs successifs** (`prevSolde` remis à
-  zéro à chaque nouveau compte). Piège documenté : la dernière colonne numérique est un cumul,
-  pas le montant de la transaction.
+- Titre : « Sycora — Analyse des comptes (AuditDiag) ».
+- Déjà câblé pour la coquille Sycora : le lien « Accueil » appelle `parent.setSycoraMode('home')`
+  lorsqu'il est chargé en iframe.
+- Dépendances propres : **Chart.js 4.4.1** (graphiques), **html-docx-js 0.3.1** + **FileSaver 2.0.5**
+  (export Word), en plus de `xlsx`. Ajoutées à `STATIC_ASSETS` du service worker
+  (cache passé en `sycora-v2`) pour le fonctionnement hors-ligne.
+- Logique métier de référence : `REFERENCE_MOTEUR_AUDITDIAG.md` (parsing grand livre par delta
+  de solde progressif, classification SYSCOHADA générique, ratios, base de connaissances,
+  anomalies, comparatif N/N-1).
 
-### Moteur
-- Classification générique : `classe()`, `sousClasse1/2/4/6/7` (aucune règle câblée à un compte).
-- `aggregate()` → immobilisations nettes, stocks, créances, trésorerie, capitaux propres,
-  dettes financières, passif circulant, charges/produits, résultat. Suivi séparé de
-  `immoAmortissable` (21/23/24 — hors terrains 22 et financières 26/27).
-- `ratios()` → FR, BFR, TN (+ contrôle vs trésorerie réelle), liquidité générale et réduite,
-  autonomie, endettement, capacité de remboursement, délais clients/fournisseurs/stocks,
-  marge nette, rentabilité des capitaux propres, CAF, poids des charges de personnel.
-- `KB` (~55 entrées, repli par classe) → nature, sens normal, rôle, opérations, justificatifs,
-  **contrôles à mener** pour chaque compte.
-- Comparatif N/N-1 : bilan → repli sur le solde d'ouverture ; gestion → uniquement si balance
-  N-1 fournie. Contrôle d'**écart de report à nouveau** (seuil : max(1000 ; 0,5 % du bilan)).
-- `buildDetailMouvements()` : détail des écritures affiché **seulement** si variation ≥ 30 %
-  ou poids ≥ 5 % du bilan (évite de noyer les comptes stables).
-- Anomalies : comptes d'attente, sens anormaux (client créditeur, fournisseur débiteur,
-  caisse créditrice), variations > 100 %, écarts de RAN, écritures dupliquées, autonomie,
-  FR négatif, liquidité < 1, endettement > 85 %, absence d'amortissement, concentration tiers.
-
-### Interface
-Onglets Synthèse / Ratios / Fiches par compte / Anomalies / Recommandations.
-Recherche plein texte, filtres par classe et par risque. Exports **PDF** (impression) et
-**Word** (.doc).
-
-### Validation (balance réelle BAL_APRES_IS)
-Total actif = total passif = **8 515 209 461** (écart 0) ; capitaux propres 830 440 697 ;
-dettes financières 6 722 600 000 ; résultat net 30 440 697 — **identiques à la liasse DGID
-déposée**. Contrôle TN = FR − BFR = 6 391 487 = trésorerie réelle ✓.
-Anomalies remontées : autonomie 9,8 %, FR négatif, liquidité 0,52, endettement 90,2 %,
-délai clients 424 j, 4 comptes d'attente non soldés — toutes pertinentes (faux positif
-« absence d'amortissement » corrigé : les titres de participation ne s'amortissent pas).
+> Note : toute évolution future de ce module doit repartir du fichier client, qui fait foi.
 
 ---
 
@@ -235,9 +209,12 @@ Notes injectées en DGID (23) : 4,6,7,8,9,10,11,14,15A,16A,17,18,19,20,21,22,23,
   3e onglet. Réintégration des notes calculées 3A/31/34 dans l'export DGID.
   Validé sur la balance réelle : agrégats identiques à la liasse déposée.
 
+- **0.9** — Module Analyse remplacé par la **version AuditDiag complète fournie par le client**
+  (intégrée verbatim). Service worker mis à jour (`sycora-v2`) avec Chart.js, html-docx-js et
+  FileSaver pour l'usage hors-ligne. Intégration vérifiée (onglet, carte, iframe, lien retour).
+
 ### Prochaines étapes proposées
 - Catégorie B (mouvements : immobilisations 3A/3C/3D, provisions, capital) via SI + md/mc.
 - Formulaire de compléments annexes (catégorie C).
 - Transpilation SYSCOHADA si masque non protégé fourni.
 - Analyse : passerelle Montage → Analyse (réutiliser la balance déjà importée).
-- Analyse : graphiques (évolution, structure) et export Excel du détail des comptes.
