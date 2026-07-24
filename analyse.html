@@ -165,6 +165,12 @@ body.print-single-tab .tabpanel.active{display:block !important;page-break-after
       <div><label>Nom de la société</label><input type="text" id="inCompany" placeholder="Ex : Cabinet XY Sarl"></div>
       <div><label>NINEA</label><input type="text" id="inNinea" placeholder="Ex : 0012345678"></div>
       <div><label>RCCM</label><input type="text" id="inRccm" placeholder="Ex : SN.DKR.2020.A.1234"></div>
+      <div><label>Référentiel comptable</label>
+        <select id="inReferentiel" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:14px;background:#fff;">
+          <option value="syscohada">SYSCOHADA Révisé (entreprises)</option>
+          <option value="sycebnl">SYCEBNL (associations, ONG, fondations)</option>
+        </select>
+      </div>
       <div><label>Début de période</label><input type="date" id="inDateStart"></div>
       <div><label>Fin de période</label><input type="date" id="inDateEnd"></div>
     </div>
@@ -205,7 +211,8 @@ body.print-single-tab .tabpanel.active{display:block !important;page-break-after
     <div class="error-box" id="errBox"></div>
     <div style="margin-top:18px;" class="actions-row">
       <button class="btn" id="btnGenerate" disabled>Générer le diagnostic</button>
-      <button class="btn secondary" id="btnDemo">Charger un jeu de données de démonstration</button>
+      <button class="btn secondary" id="btnDemo">Démo SYSCOHADA</button>
+      <button class="btn secondary" id="btnDemoSycebnl">Démo SYCEBNL (association)</button>
     </div>
   </div>
 
@@ -283,8 +290,17 @@ const Engine = (() => {
     if (c.startsWith('29')) return 'provimmo';
     return 'brut';
   }
-  function sousClasse1(code) {
+  function sousClasse1(code, referentiel) {
     const c = String(code).trim().slice(0, 2);
+    if (referentiel === 'sycebnl') {
+      // SYCEBNL : 16 = fonds affectés (dons/legs d'immobilisations), 17 = fonds reportés —
+      // ce sont des ressources non remboursables, pas des dettes financières. Le vrai
+      // compte d'emprunt en SYCEBNL est le 18 (à l'inverse du SYSCOHADA classique).
+      if (c === '16' || c === '17') return 'fonds_affectes';
+      if (c === '18') return 'dette_fin';
+      if (c === '19') return 'prov_fin';
+      return 'capitaux';
+    }
     if (['16', '17'].includes(c)) return 'dette_fin';
     if (c === '19') return 'prov_fin';
     return 'capitaux';
@@ -400,6 +416,7 @@ const Engine = (() => {
   // ---------- Agrégation bilan / compte de résultat / ratios ----------
   function aggregate(balance, options = {}) {
     const nbJours = options.nbJours || 365;
+    const referentiel = options.referentiel || 'syscohada';
     const rows = balance.map(d => ({ ...d, net: d.sf_d - d.sf_c }));
     const byCode = {};
     rows.forEach(d => { byCode[d.code] = d; });
@@ -409,7 +426,7 @@ const Engine = (() => {
       stocks: 0,
       actif_circ: 0, dettes_circ: 0,
       tresorerie_actif: 0, tresorerie_passif: 0,
-      capitaux_propres: 0, dette_fin_lt: 0, prov_fin_lt: 0,
+      capitaux_propres: 0, dette_fin_lt: 0, prov_fin_lt: 0, fonds_affectes: 0,
       charges_expl: 0, charges_fin: 0, charges_dotation: 0, charges_personnel: 0,
       produits_expl: 0, produits_fin: 0, produits_reprise: 0,
       clients: 0, fournisseurs: 0,
@@ -434,9 +451,10 @@ const Engine = (() => {
       } else if (cl === '5') {
         if (d.net >= 0) acc.tresorerie_actif += d.net; else acc.tresorerie_passif += -d.net;
       } else if (cl === '1') {
-        const sc = sousClasse1(d.code);
+        const sc = sousClasse1(d.code, referentiel);
         if (sc === 'dette_fin') acc.dette_fin_lt += -d.net;
         else if (sc === 'prov_fin') acc.prov_fin_lt += -d.net;
+        else if (sc === 'fonds_affectes') acc.fonds_affectes += -d.net;
         else acc.capitaux_propres += -d.net;
       } else if (cl === '6') {
         const sc = sousClasse6(d.code);
@@ -461,8 +479,12 @@ const Engine = (() => {
     const resultat_expl = (acc.produits_expl + acc.produits_reprise) - (acc.charges_expl + acc.charges_dotation + acc.charges_personnel);
     const resultat_fin = acc.produits_fin - acc.charges_fin;
 
+    // Les fonds affectés/reportés (SYCEBNL) sont des ressources non remboursables :
+    // on les traite comme des ressources stables (proches des capitaux propres) pour le FR,
+    // mais on les garde isolés pour l'affichage du bilan (ce ne sont pas des "capitaux propres"
+    // au sens strict, ni une dette financière).
     const capitaux_propres_total = acc.capitaux_propres + resultat_net;
-    const ressources_stables = capitaux_propres_total + acc.dette_fin_lt + acc.prov_fin_lt;
+    const ressources_stables = capitaux_propres_total + acc.dette_fin_lt + acc.prov_fin_lt + acc.fonds_affectes;
     const FR = ressources_stables - immo_net;
     const BFR = (acc.stocks + acc.actif_circ) - acc.dettes_circ;
     const TN = acc.tresorerie_actif - acc.tresorerie_passif;
@@ -472,7 +494,7 @@ const Engine = (() => {
     const liquidite_reduite = dettesCT > 0 ? (acc.actif_circ + acc.tresorerie_actif) / dettesCT : null;
     const liquidite_immediate = dettesCT > 0 ? acc.tresorerie_actif / dettesCT : null;
 
-    const autonomie_financiere = total_actif > 0 ? capitaux_propres_total / total_actif : null;
+    const autonomie_financiere = total_actif > 0 ? (capitaux_propres_total + acc.fonds_affectes) / total_actif : null;
     const endettement = total_actif > 0 ? (acc.dette_fin_lt + dettesCT) / total_actif : null;
 
     const marge_nette = produits_totaux > 0 ? resultat_net / produits_totaux : null;
@@ -488,7 +510,7 @@ const Engine = (() => {
     const dsi = achats_charges_externes > 0 && acc.stocks > 0 ? (acc.stocks / achats_charges_externes) * nbJours : null;
 
     return {
-      rows, byCode, nbJours,
+      rows, byCode, nbJours, referentiel,
       ...acc,
       immo_net, total_actif,
       charges_totales, produits_totaux, resultat_net, resultat_expl, resultat_fin,
@@ -611,8 +633,35 @@ const KB = (() => {
     '7': { nature: 'Produit', sens: 'Crédit', role: "Compte de produits.", operations: "Vente de biens ou services sur la période.", justificatifs: "Factures de vente.", controles: ["Vérifier le rattachement à l'exercice (coupure)"] },
   };
 
-  function lookup(code) {
+  // ---------- SYCEBNL (Entités à But Non Lucratif — OHADA, obligatoire depuis 2024) ----------
+  // Ne couvre QUE les comptes dont le sens diffère réellement du SYSCOHADA (classes 1, 7, 9) :
+  // pour tout le reste (classes 2,3,4,5,6,8), le SYCEBNL renvoie explicitement au SYSCOHADA
+  // Révisé, donc la table SYSCOHADA générique ci-dessus reste utilisée telle quelle.
+  const SYCEBNL_TABLE = {
+    '10': { nature: 'Passif', sens: 'Crédit', role: "Dotations (apports non remboursables reçus par l'entité, avec ou sans droit de reprise) — équivalent du « capital » pour une structure sans actionnaires.", operations: "Réception de dotations initiales, droits d'entrée, dotations consomptibles.", justificatifs: "Actes de donation, statuts, PV de l'organe délibérant.", controles: ["Vérifier le caractère consomptible ou non de la dotation", "Rapprocher avec les statuts et décisions de l'organe délibérant"] },
+    '16': { nature: 'Passif', sens: 'Crédit', role: "Fonds affectés provenant de dons ou legs d'immobilisations — ressource non remboursable liée à un actif donné, PAS un emprunt (à la différence du SYSCOHADA classique où 16 = emprunts).", operations: "Réception de dons/legs d'immobilisations, quote-part rapportée au résultat au rythme de l'amortissement du bien financé.", justificatifs: "Acte de donation ou de legs, évaluation du bien reçu.", controles: ["Vérifier la reprise en résultat au même rythme que l'amortissement de l'immobilisation concernée", "Ne pas confondre avec un emprunt (compte 18 en SYCEBNL)"] },
+    '17': { nature: 'Passif', sens: 'Crédit', role: "Fonds reportés — ressources affectées à un projet non encore consommées à la clôture, PAS une dette financière.", operations: "Constatation de fonds dédiés non utilisés sur l'exercice, reprise en produits lorsque le projet est réalisé.", justificatifs: "Convention de financement/projet, suivi budgétaire du projet concerné.", controles: ["Vérifier que le fonds correspond à un projet identifié et non achevé", "Contrôler la reprise en produits (compte 78/79) lors de la réalisation du projet"] },
+    '18': { nature: 'Passif', sens: 'Crédit', role: "Emprunts et dettes assimilées — en SYCEBNL, c'est ICI que se logent les emprunts (et non au compte 16 comme en SYSCOHADA classique).", operations: "Tirage d'emprunt, remboursements en capital.", justificatifs: "Contrat de prêt, tableau d'amortissement bancaire.", controles: ["Rapprocher avec le tableau d'amortissement bancaire", "Ne pas confondre avec les comptes 16/17 (fonds affectés/reportés, non remboursables)"] },
+    '70': { nature: 'Produit', sens: 'Crédit', role: "Revenus (cotisations, générosité du public, ventes accessoires, manifestations).", operations: "Cotisations des adhérents, dons, legs, ventes de biens/services, manifestations.", justificatifs: "Reçus de cotisation, reçus fiscaux de dons, factures de vente, comptes de manifestation.", controles: ["Vérifier l'émission des reçus fiscaux pour les dons ouvrant droit à réduction d'impôt", "Rapprocher les cotisations avec le fichier des adhérents"] },
+    '701': { nature: 'Produit', sens: 'Crédit', role: "Cotisations des adhérents.", operations: "Encaissement des cotisations annuelles ou périodiques des membres.", justificatifs: "Fichier des adhérents, reçus de cotisation, relevés bancaires/caisse.", controles: ["Rapprocher le nombre de cotisants avec le fichier des membres", "Vérifier la cohérence du montant unitaire de cotisation"] },
+    '7041': { nature: 'Produit', sens: 'Crédit', role: "Dons manuels reçus (numéraire ou nature).", operations: "Réception de dons ponctuels ou réguliers de donateurs.", justificatifs: "Reçus de dons, reçus fiscaux le cas échéant, courriers de donateurs.", controles: ["Vérifier l'émission de reçus fiscaux conformes pour les dons éligibles", "Rapprocher avec le registre des donateurs"] },
+    '7042': { nature: 'Produit', sens: 'Crédit', role: "Legs reçus (transmissions à titre gratuit par testament).", operations: "Réception de legs suite à décès d'un donateur.", justificatifs: "Acte notarié, jugement d'envoi en possession, inventaire du legs.", controles: ["Vérifier l'existence de l'acte notarié et l'évaluation du legs", "Contrôler le respect des éventuelles clauses d'affectation du legs"] },
+    '71': { nature: 'Produit', sens: 'Crédit', role: "Subventions d'exploitation (État, collectivités, bailleurs de projets, organismes internationaux).", operations: "Réception de subventions de fonctionnement liées à l'activité de l'exercice.", justificatifs: "Convention de subvention, notification d'octroi, rapports d'exécution du bailleur.", controles: ["Vérifier le respect des conditions et de l'affectation prévues par la convention", "Rapprocher avec le rapport d'exécution budgétaire transmis au bailleur", "Vérifier l'absence de double financement d'une même charge par plusieurs bailleurs"] },
+    '90': { nature: 'Hors bilan', sens: 'Débit', role: "Contributions volontaires en nature — Emplois (bénévolat, mise à disposition gratuite valorisée).", operations: "Valorisation du temps de bénévolat, biens ou services reçus gratuitement et utilisés par l'entité.", justificatifs: "Feuilles de temps des bénévoles, conventions de mise à disposition, méthode de valorisation retenue.", controles: ["Vérifier la cohérence entre le compte 90 (emplois) et le compte 91 (ressources)", "Documenter la méthode de valorisation du bénévolat"] },
+    '91': { nature: 'Hors bilan', sens: 'Crédit', role: "Contributions volontaires en nature — Ressources (contrepartie du compte 90).", operations: "Constatation en ressources de la valorisation du bénévolat/dons en nature.", justificatifs: "Idem compte 90.", controles: ["Vérifier l'égalité comptable avec le compte 90 (ces écritures sont hors bilan, sans impact sur le résultat)"] },
+  };
+
+  function lookup(code, referentiel) {
     const c = String(code).trim();
+    if (referentiel === 'sycebnl') {
+      for (const len of [4, 3, 2]) {
+        const p = c.slice(0, len);
+        if (SYCEBNL_TABLE[p]) return SYCEBNL_TABLE[p];
+      }
+      // Pas de règle SYCEBNL spécifique pour ce préfixe : le SYCEBNL renvoie au SYSCOHADA
+      // pour tout ce qu'il ne définit pas explicitement (classes 2,3,4,5,6,8) — on retombe
+      // donc sur la table générique ci-dessous.
+    }
     for (const len of [3, 2]) {
       const p = c.slice(0, len);
       if (TABLE[p]) return TABLE[p];
@@ -926,7 +975,7 @@ const Fiches = (() => {
     const { R, glAccounts, meta, balanceN1Map } = ctx;
     const code = d.code, libelle = d.libelle;
     const classeDigit = Engine.classe(code);
-    const kb = KB.lookup(code);
+    const kb = KB.lookup(code, R.referentiel);
     const isBilan = BILAN_CLASSES.includes(classeDigit);
 
     const netN = d.sf_d - d.sf_c;
@@ -1036,7 +1085,7 @@ const Fiches = (() => {
     if (!recommandations.length) recommandations.push("Aucune action corrective urgente identifiée ; maintenir le suivi habituel.");
 
     return {
-      code, libelle, classeDigit, kb, isBilan, n1Connu, hasN1File,
+      code, libelle, classeDigit, kb, isBilan, n1Connu, hasN1File, referentiel: R.referentiel,
       netN, netN1, netN1_ouverture, netN1_reel, ecartOuverture,
       variationAbs, variationPct, sensVariation, poidsBilan, mvt,
       commentaire, mv, detailMouvements, anomalies, risk, questions, recommandations,
@@ -1077,6 +1126,18 @@ const Render = (() => {
     return `<span class="badge ${cls}" style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;color:${color};background:${bg};">${label}</span>`;
   }
   function esc(s) { return (s || '').toString().replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+  // Vocabulaire adapté selon le référentiel (SYSCOHADA = entreprise, SYCEBNL = association/ONG).
+  function labels(R) {
+    const s = R && R.referentiel === 'sycebnl';
+    return {
+      resultat: s ? 'Surplus / déficit net' : 'Résultat net',
+      resultatCourt: s ? 'Surplus/déficit' : 'Résultat',
+      produits: s ? 'Ressources' : 'Produits',
+      ca: s ? 'ressources totales' : "chiffre d'affaires",
+      caCap: s ? 'Ressources totales' : "Chiffre d'affaires",
+    };
+  }
 
   // Cellule "brute" : permet d'injecter du HTML déjà construit (ex: badge, code coloré)
   // dans un tableau sans que table() ne l'échappe comme du texte simple.
@@ -1132,7 +1193,7 @@ const Render = (() => {
 
     html += `<div class="kpi-grid">
       ${kpi('Total bilan', fmt(R.total_actif))}
-      ${kpi('Résultat net période', fmt(R.resultat_net), null, R.resultat_net >= 0 ? 'ok' : 'danger')}
+      ${kpi(labels(R).resultat + ' période', fmt(R.resultat_net), null, R.resultat_net >= 0 ? 'ok' : 'danger')}
       ${kpi('Autonomie financière', pct(R.autonomie_financiere), null, (R.autonomie_financiere || 0) >= 0.2 ? 'ok' : 'danger')}
       ${kpi('Fonds de roulement (FR)', fmt(R.FR), null, R.FR >= 0 ? 'ok' : 'danger')}
       ${kpi('Trésorerie nette', fmt(R.TN), null, R.TN >= 0 ? 'ok' : 'danger')}
@@ -1171,17 +1232,23 @@ const Render = (() => {
     html += `<div class="chart-row"><div class="chart-wrap"><canvas id="chartActifStruct"></canvas></div><div class="chart-wrap"><canvas id="chartActifBar"></canvas></div></div>`;
 
     html += `<h2 class="section-h">3. Bilan — Passif</h2>`;
-    html += table(["Poste", "Montant (FCFA)", "Poids"], [
+    const passifRows = [
       ["Capitaux propres (hors résultat période)", R.capitaux_propres, ''],
-      ["Résultat net de la période", R.resultat_net, ''],
+      [labels(R).resultat + " de la période", R.resultat_net, ''],
       ["Capitaux propres totaux", R.capitaux_propres_total, pct(R.total_actif ? R.capitaux_propres_total / R.total_actif : null)],
+    ];
+    if (R.referentiel === 'sycebnl' && R.fonds_affectes) {
+      passifRows.push(["Fonds affectés et fonds reportés (dons/legs, projets)", R.fonds_affectes, pct(R.total_actif ? R.fonds_affectes / R.total_actif : null)]);
+    }
+    passifRows.push(
       ["Dettes financières long terme", R.dette_fin_lt, pct(R.total_actif ? R.dette_fin_lt / R.total_actif : null)],
       ["Provisions financières durables", R.prov_fin_lt, ''],
       ["Dettes circulantes (hors trésorerie)", R.dettes_circ, pct(R.total_actif ? R.dettes_circ / R.total_actif : null)],
       ["  dont Fournisseurs", R.fournisseurs, ''],
       ["Trésorerie — passif (concours bancaires)", R.tresorerie_passif, pct(R.total_actif ? R.tresorerie_passif / R.total_actif : null)],
       ["TOTAL PASSIF", R.total_actif, "100 %"],
-    ]);
+    );
+    html += table(["Poste", "Montant (FCFA)", "Poids"], passifRows);
     return html;
   }
 
@@ -1198,7 +1265,7 @@ const Render = (() => {
       ["Produits financiers", R.produits_fin],
       ["Charges financières", R.charges_fin],
       ["Résultat financier", R.resultat_fin],
-      ["Résultat net de la période", R.resultat_net],
+      [labels(R).resultat + " de la période", R.resultat_net],
     ]);
     html += `<div class="kpi-grid">
       ${kpi('Marge nette', pct(R.marge_nette))}
@@ -1348,6 +1415,9 @@ const Render = (() => {
       ["EBITDA (approx.)", fmt(R.ebitda), ''],
     ]);
     html += `<div class="chart-wrap"><canvas id="chartRadar"></canvas></div>`;
+    if (R.referentiel === 'sycebnl') {
+      html += `<div class="note-box">Référentiel SYCEBNL : les notions de « rentabilité » et de « marge nette » sont calculées avec la même formule que pour une entreprise, mais leur interprétation diffère pour une entité à but non lucratif — un « surplus » n'est pas un profit distribuable, il vient renforcer les fonds propres ou financer les projets suivants. Ces ratios sont fournis à titre indicatif ; l'analyse de l'autonomie financière, de la trésorerie et de la dépendance aux subventions/bailleurs reste plus pertinente pour ce type d'entité.</div>`;
+    }
     return html;
   }
 
@@ -1371,7 +1441,7 @@ const Render = (() => {
           ${f.detailMouvements.resteCount ? `<p class="body-text" style="font-size:12.5px;color:var(--muted);">+ ${f.detailMouvements.resteCount} autre(s) écriture(s) non détaillée(s) ci-dessus, pour un solde net de ${fmt(f.detailMouvements.resteTotal)}.</p>` : ''}
           ` : ''}
 
-          <div class="subhead">D. Explication comptable (SYSCOHADA Révisé)</div>
+          <div class="subhead">D. Explication comptable (${f.referentiel === 'sycebnl' ? 'SYCEBNL' : 'SYSCOHADA Révisé'})</div>
           <ul class="bullets">
             <li><strong>Rôle :</strong> ${esc(kb.role)}</li>
             <li><strong>Fonctionnement normal :</strong> ${esc(kb.sens)}</li>
@@ -1404,7 +1474,7 @@ const Render = (() => {
     const { R, glAccounts, meta } = ctx;
     const mode = ctx.reportMode || 'complet';
     let html = `<h2 class="section-h">15. Analyse par comptes — revue comptable détaillée</h2>`;
-    html += `<p class="body-text">Fiche d'analyse complète (présentation, comparatif N/N-1, commentaire, explication SYSCOHADA, contrôles, mouvements, anomalies, questions, recommandations) pour l'intégralité des ${R.rows.length} comptes mouvementés. ${ctx.balanceN1Map ? "Une balance N-1 a été fournie : le comparatif N/N-1 est établi à partir de sa clôture réelle (y compris pour les comptes de charges et produits), avec un contrôle automatique de cohérence entre le solde d'ouverture de N et cette clôture N-1." : "Le comparatif N/N-1 est établi à partir du solde d'ouverture (= clôture N-1) et du solde de clôture (= N) de la balance transmise ; pour les comptes de gestion (classes 6/7), une comparaison chiffrée nécessite d'importer également la balance N-1 (option disponible ci-dessus)."}</p>`;
+    html += `<p class="body-text">Fiche d'analyse complète (présentation, comparatif N/N-1, commentaire, explication ${R.referentiel === 'sycebnl' ? 'SYCEBNL' : 'SYSCOHADA'}, contrôles, mouvements, anomalies, questions, recommandations) pour l'intégralité des ${R.rows.length} comptes mouvementés. ${ctx.balanceN1Map ? "Une balance N-1 a été fournie : le comparatif N/N-1 est établi à partir de sa clôture réelle (y compris pour les comptes de charges et produits), avec un contrôle automatique de cohérence entre le solde d'ouverture de N et cette clôture N-1." : "Le comparatif N/N-1 est établi à partir du solde d'ouverture (= clôture N-1) et du solde de clôture (= N) de la balance transmise ; pour les comptes de gestion (classes 6/7), une comparaison chiffrée nécessite d'importer également la balance N-1 (option disponible ci-dessus)."}</p>`;
 
     // Calcul systématique des fiches (nécessaire aussi en mode synthèse, pour la conclusion et l'export)
     ctx._fiches = {};
@@ -1498,7 +1568,7 @@ const Render = (() => {
       html += `<div class="subhead">Classe 6 — Charges</div>`;
       html += table(["Compte", "Libellé", "Montant (FCFA)", "Poids / total charges"],
         list.map(d => [codeCell(d.code), d.libelle, d.sf_d - d.sf_c, pct(R.charges_totales ? (d.sf_d - d.sf_c) / R.charges_totales : null)]));
-      html += `<p class="body-text">Poids des charges dans le chiffre d'affaires de la période : ${pct(R.produits_totaux ? R.charges_totales / R.produits_totaux : null)}. Les postes ci-dessus classés par ordre décroissant constituent les principaux gisements d'économie potentielle à challenger avec le dirigeant.</p>`;
+      html += `<p class="body-text">Poids des charges dans les ${labels(R).ca} de la période : ${pct(R.produits_totaux ? R.charges_totales / R.produits_totaux : null)}. Les postes ci-dessus classés par ordre décroissant constituent les principaux gisements d'économie potentielle à challenger avec le dirigeant.</p>`;
     }
     if (byClasse['7']) {
       const list = byClasse['7'].slice().sort((a, b) => (b.sf_c - b.sf_d) - (a.sf_c - a.sf_d));
@@ -1662,7 +1732,7 @@ const Render = (() => {
     mk('chartCascade', {
       type: 'bar',
       data: {
-        labels: ['Produits', 'Charges expl.', 'Personnel', 'Dotations', 'Financier', 'Résultat net'],
+        labels: [labels(R).produits, 'Charges expl.', 'Personnel', 'Dotations', 'Financier', labels(R).resultatCourt],
         datasets: [{
           label: 'FCFA',
           data: [R.produits_expl + R.produits_fin + R.produits_reprise, -R.charges_expl, -R.charges_personnel, -R.charges_dotation, R.resultat_fin, R.resultat_net],
@@ -1834,15 +1904,16 @@ const Render = (() => {
       const dateStart = document.getElementById('inDateStart').value;
       const dateEnd = document.getElementById('inDateEnd').value;
       const nbJours = nbJoursBetween(dateStart, dateEnd);
+      const referentiel = document.getElementById('inReferentiel').value;
 
-      const R = Engine.aggregate(balance, { nbJours });
+      const R = Engine.aggregate(balance, { nbJours, referentiel });
       const findings = Rules.detect(R, glAccounts, auxBalance, auxGL, nbJours);
 
       const meta = {
         company: document.getElementById('inCompany').value || 'Société non renseignée',
         ninea: document.getElementById('inNinea').value,
         rccm: document.getElementById('inRccm').value,
-        dateStart, dateEnd, nbJours,
+        dateStart, dateEnd, nbJours, referentiel,
       };
 
       lastCtx = { R, findings, auxBalance, glAccounts, auxGL, meta, balanceN1Map, reportMode: 'complet' };
@@ -1920,22 +1991,74 @@ const Render = (() => {
       ] },
     };
     const findings = Rules.detect(R, glAccounts, auxBalance, auxGLDemo, nbJours);
-    const meta = { company: 'Société Démonstration SARL', ninea: '004512378', rccm: 'SN.DKR.2024.B.9876', dateStart: '2026-01-01', dateEnd: '2026-06-30', nbJours };
+    const meta = { company: 'Société Démonstration SARL', ninea: '004512378', rccm: 'SN.DKR.2024.B.9876', dateStart: '2026-01-01', dateEnd: '2026-06-30', nbJours, referentiel: 'syscohada' };
     const balanceN1Map = {
       '601000': 34000000, // achats N-1 (comparaison possible pour une charge, convention débit = positif)
       '701000': -58000000, // ventes N-1 (comparaison possible pour un produit, convention crédit = négatif)
       '411000': 12000000, // clôture N-1 réelle différente du solde d'ouverture affiché (18M) -> démontre l'écart
     };
     lastCtx = { R, findings, auxBalance, glAccounts, auxGL: auxGLDemo, meta, balanceN1Map, reportMode: 'complet' };
+    finishDemo(meta, '(jeu de démonstration SYSCOHADA)');
+  } catch (err) {
+    console.error(err);
+    showError('Erreur lors de la génération du jeu de démonstration : ' + err.message);
+  } });
+
+  function finishDemo(meta, tag) {
     document.getElementById('clientTag').textContent = meta.company;
-    document.getElementById('repTitle').textContent = `Diagnostic — ${meta.company} (jeu de démonstration)`;
+    document.getElementById('repTitle').textContent = `Diagnostic — ${meta.company} ${tag}`;
     document.getElementById('repSub').textContent = `NINEA ${meta.ninea} · RCCM ${meta.rccm} · Période du ${meta.dateStart} au ${meta.dateEnd}`;
     Render.renderReport(lastCtx);
     document.getElementById('report').style.display = 'block';
     document.getElementById('report').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ---------------- Démo SYCEBNL (association / ONG) ----------------
+  document.getElementById('btnDemoSycebnl').addEventListener('click', () => { try {
+    clearError();
+    document.getElementById('inCompany').value = 'Association Espoir & Solidarité';
+    document.getElementById('inNinea').value = '007788990';
+    document.getElementById('inRccm').value = 'N/A (association)';
+    document.getElementById('inReferentiel').value = 'sycebnl';
+    document.getElementById('inDateStart').value = '2026-01-01';
+    document.getElementById('inDateEnd').value = '2026-06-30';
+
+    const balance = [
+      { code: '101000', libelle: 'Dotation initiale', si_d: 0, si_c: 20000000, mv_d: 0, mv_c: 0, sf_d: 0, sf_c: 20000000 },
+      { code: '130000', libelle: "Résultat net N-1 — surplus reporté", si_d: 0, si_c: 1500000, mv_d: 0, mv_c: 0, sf_d: 0, sf_c: 1500000 },
+      { code: '160000', libelle: "Fonds affectés — don d'immobilisation (véhicule)", si_d: 0, si_c: 8000000, mv_d: 0, mv_c: 0, sf_d: 0, sf_c: 8000000 },
+      { code: '170000', libelle: 'Fonds reportés — projet Éducation 2026', si_d: 0, si_c: 6000000, mv_d: 0, mv_c: 4000000, sf_d: 0, sf_c: 2000000 },
+      { code: '180000', libelle: "Emprunt bancaire", si_d: 0, si_c: 10000000, mv_d: 0, mv_c: 0, sf_d: 0, sf_c: 10000000 },
+      { code: '241000', libelle: 'Matériel et véhicules', si_d: 8000000, si_c: 0, mv_d: 0, mv_c: 0, sf_d: 8000000, sf_c: 0 },
+      { code: '281000', libelle: 'Amortissement matériel et véhicules', si_d: 0, si_c: 2000000, mv_d: 0, mv_c: 1000000, sf_d: 0, sf_c: 3000000 },
+      { code: '401000', libelle: 'Fournisseurs', si_d: 0, si_c: 3000000, mv_d: 8000000, mv_c: 9000000, sf_d: 0, sf_c: 4000000 },
+      { code: '421000', libelle: 'Personnel, rémunérations dues', si_d: 0, si_c: 0, mv_d: 6000000, mv_c: 6200000, sf_d: 0, sf_c: 200000 },
+      { code: '521000', libelle: 'Banque', si_d: 3000000, si_c: 0, mv_d: 68400000, mv_c: 23000000, sf_d: 48400000, sf_c: 0 },
+      { code: '571000', libelle: 'Caisse', si_d: 200000, si_c: 0, mv_d: 1500000, mv_c: 1400000, sf_d: 300000, sf_c: 0 },
+      { code: '601000', libelle: 'Achats de fournitures', si_d: 0, si_c: 0, mv_d: 2500000, mv_c: 0, sf_d: 2500000, sf_c: 0 },
+      { code: '661000', libelle: 'Rémunérations du personnel', si_d: 0, si_c: 0, mv_d: 6000000, mv_c: 0, sf_d: 6000000, sf_c: 0 },
+      { code: '681000', libelle: 'Dotations aux amortissements', si_d: 0, si_c: 0, mv_d: 1000000, mv_c: 0, sf_d: 1000000, sf_c: 0 },
+      { code: '701000', libelle: 'Cotisations des adhérents', si_d: 0, si_c: 0, mv_d: 0, mv_c: 3500000, sf_d: 0, sf_c: 3500000 },
+      { code: '704100', libelle: 'Dons manuels', si_d: 0, si_c: 0, mv_d: 0, mv_c: 6000000, sf_d: 0, sf_c: 6000000 },
+      { code: '711000', libelle: "Subventions d'exploitation — bailleurs de projets", si_d: 0, si_c: 0, mv_d: 0, mv_c: 8000000, sf_d: 0, sf_c: 8000000 },
+    ];
+    const glAccounts = {
+      '170000': { code: '170000', libelle: 'Fonds reportés — projet Éducation 2026', entries: [
+        { date: new Date('2026-04-10'), journal: 'OD', piece: '9', text: 'Utilisation fonds reportés — activité Éducation T2', montant: 4000000, sens: -4000000 },
+      ] },
+    };
+    const auxBalance = [
+      { code: 'F001', libelle: 'Fournisseur Papeterie Centrale', si_d: 0, si_c: 3000000, mv_d: 3000000, mv_c: 4000000, sf_d: 0, sf_c: 4000000 },
+    ];
+    const nbJours = nbJoursBetween('2026-01-01', '2026-06-30');
+    const R = Engine.aggregate(balance, { nbJours, referentiel: 'sycebnl' });
+    const findings = Rules.detect(R, glAccounts, auxBalance, {}, nbJours);
+    const meta = { company: 'Association Espoir & Solidarité', ninea: '007788990', rccm: 'N/A (association)', dateStart: '2026-01-01', dateEnd: '2026-06-30', nbJours, referentiel: 'sycebnl' };
+    lastCtx = { R, findings, auxBalance, glAccounts, auxGL: {}, meta, balanceN1Map: null, reportMode: 'complet' };
+    finishDemo(meta, '(jeu de démonstration SYCEBNL — association)');
   } catch (err) {
     console.error(err);
-    showError('Erreur lors de la génération du jeu de démonstration : ' + err.message);
+    showError('Erreur lors de la génération du jeu de démonstration SYCEBNL : ' + err.message);
   } });
 
   // ---------------- Export ----------------

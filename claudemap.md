@@ -1,7 +1,7 @@
 # CLAUDEMAP — Sycora
 
 > Carte vivante du projet. Mise à jour à chaque évolution.
-> **Version : 0.12** · Dernière mise à jour : session « mise à jour Analyse (détail par tiers) »
+> **Version : 0.13** · Dernière mise à jour : session « mise à jour Analyse (référentiel SYCEBNL) »
 > Règle : ce fichier doit toujours refléter l'état réel du code livré.
 
 ---
@@ -127,7 +127,7 @@ Mécanique d'injection Excel : JSZip + DOMParser ; `getSheetPath()` (résolution
 
 ## 5bis. Module ANALYSE DES COMPTES (analyse.html)
 
-**Version en production : fichier fourni par le client (AuditDiag complet, ~144 Ko, 2094 lignes),
+**Version en production : fichier fourni par le client (AuditDiag complet, ~158 Ko, 2217 lignes),
 intégré tel quel — aucune modification.** Il remplace le portage initial réalisé côté Sycora.
 
 - Titre : « Sycora — Analyse des comptes (AuditDiag) ».
@@ -135,7 +135,7 @@ intégré tel quel — aucune modification.** Il remplace le portage initial ré
   lorsqu'il est chargé en iframe.
 - Dépendances propres : **Chart.js 4.4.1** (graphiques), **html-docx-js 0.3.1** + **FileSaver 2.0.5**
   (export Word), en plus de `xlsx`. Ajoutées à `STATIC_ASSETS` du service worker
-  (cache `sycora-v5`) pour le fonctionnement hors-ligne.
+  (cache `sycora-v6`) pour le fonctionnement hors-ligne.
 - Logique métier de référence : `REFERENCE_MOTEUR_AUDITDIAG.md` (parsing grand livre par delta
   de solde progressif, classification SYSCOHADA générique, ratios, base de connaissances,
   anomalies, comparatif N/N-1).
@@ -228,6 +228,14 @@ Notes injectées en DGID (23) : 4,6,7,8,9,10,11,14,15A,16A,17,18,19,20,21,22,23,
   et anomalies (doublons, montants ronds ≥ 1 M multiples de 100 000, **ancienneté** du solde
   au-delà de 90 j / 180 j, solde sans écriture retrouvée). Deux modes de rapport
   (`reportMode` : « complet » avec le détail par tiers, « synthèse » sans). Cache SW → `sycora-v5`.
+
+- **0.13** — Module Analyse mis à jour (version client) : prise en charge du **référentiel
+  SYCEBNL** (sélecteur SYSCOHADA / SYCEBNL). Traitement comptable spécifique : comptes **16 et 17
+  = fonds affectés / reportés** (ressources non remboursables, et non dettes financières),
+  **18 = emprunts** — à l'inverse du SYSCOHADA. Les fonds affectés entrent dans les ressources
+  stables (calcul du FR) et dans l'autonomie financière, tout en restant isolés au bilan.
+  Base de connaissances SYCEBNL dédiée (classes 1, 7, 9) et jeu de démonstration association.
+  Cache SW → `sycora-v6`.
 
 ### Prochaines étapes proposées
 - Catégorie B (mouvements : immobilisations 3A/3C/3D, provisions, capital) via SI + md/mc.
